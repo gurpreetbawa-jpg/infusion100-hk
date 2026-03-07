@@ -110,6 +110,20 @@ router.delete('/api/participants/:id', async (req, res) => {
   }
 });
 
+// --- Admin Stats ---
+router.get('/api/stats', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT
+        (SELECT COUNT(*) FROM walks) AS total_walks,
+        (SELECT COUNT(*) FROM participants WHERE strava_token IS NOT NULL) AS strava_linked
+    `);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
 // --- Push Notifications ---
 router.get('/api/notifications/subscribers', async (req, res) => {
   try {
