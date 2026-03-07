@@ -25,10 +25,10 @@
   </nav>
 
   <div class="container">
-    <h1 style="margin-bottom:1.5rem">Admin Dashboard</h1>
+    <h1 class="mb-2">Admin Dashboard</h1>
 
     <div class="stats-grid">
-      <a href="/admin/participants" style="text-decoration:none">
+      <a href="/admin/participants" class="card-link">
         <div class="stat-card">
           <div class="stat-value" id="totalParticipants">--</div>
           <div class="stat-label">Total Participants</div>
@@ -48,12 +48,12 @@
       </div>
     </div>
 
-    <div class="stats-grid">
-      <a href="/admin/participants" class="card" style="text-decoration:none;color:inherit">
+    <div class="admin-actions-grid">
+      <a href="/admin/participants" class="card card-link">
         <h2>Manage Participants</h2>
         <p class="text-muted mt-1">View, edit, search, and export participant data.</p>
       </a>
-      <a href="/admin/map" class="card" style="text-decoration:none;color:inherit">
+      <a href="/admin/map" class="card card-link">
         <h2>Live Event Map</h2>
         <p class="text-muted mt-1">Monitor participant positions on event day.</p>
       </a>
@@ -62,7 +62,7 @@
     <!-- Send Notification -->
     <div class="card">
       <h2>Send Notification</h2>
-      <p class="text-muted mt-1" style="font-size:0.875rem">
+      <p class="text-muted text-sm mt-1">
         <span id="subscriberCount">--</span> subscriber(s) registered for push notifications.
       </p>
       <form id="notificationForm" class="mt-1">
@@ -82,7 +82,7 @@
         </div>
         <button type="submit" class="btn btn-primary">Send Notification</button>
       </form>
-      <div id="notifResult" class="mt-1" style="display:none"></div>
+      <div id="notifResult" class="mt-1 hidden"></div>
     </div>
   </div>
 
@@ -124,7 +124,7 @@
         if (!confirm(recipientId ? 'Send to this participant?' : 'Send to ALL subscribers?')) return;
 
         const resultEl = document.getElementById('notifResult');
-        resultEl.style.display = '';
+        resultEl.classList.remove('hidden');
         resultEl.textContent = 'Sending...';
 
         try {

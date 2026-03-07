@@ -848,6 +848,31 @@ tr:hover td { background: var(--surface-alt); }
 .gap-1 { gap: 0.5rem; }
 .gap-2 { gap: 1rem; }
 .hidden { display: none !important; }
+.text-sm { font-size: 0.875rem; }
+
+/* --- Admin --- */
+.admin-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-actions-grid .card + .card {
+  margin-top: 0;
+}
+
+.card-link {
+  text-decoration: none;
+  color: inherit;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .admin-actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* --- iOS Install Banner --- */
 .ios-install-banner {
