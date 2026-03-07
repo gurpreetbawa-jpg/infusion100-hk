@@ -36,7 +36,8 @@
       <button class="btn btn-primary" onclick="search()">Search</button>
     </div>
 
-    <div class="card" style="padding:0; overflow:hidden">
+    <!-- Desktop table -->
+    <div class="card participants-table" style="padding:0; overflow:hidden">
       <div class="table-container">
         <table>
           <thead>
@@ -44,19 +45,20 @@
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
-              <th>Start</th>
-              <th>End</th>
               <th>Strava</th>
               <th>Registered</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="participantsBody">
-            <tr><td colspan="8" class="text-center text-muted" style="padding:2rem">Loading...</td></tr>
+            <tr><td colspan="6" class="text-center text-muted" style="padding:2rem">Loading...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
+
+    <!-- Mobile cards -->
+    <div class="participants-cards" id="participantsCards" style="display:none"></div>
 
     <div class="pagination" id="pagination"></div>
   </div>
@@ -85,14 +87,6 @@
         <div class="form-group">
           <label>Emergency Phone</label>
           <input type="tel" id="editEcPhone" class="form-control">
-        </div>
-        <div class="form-group">
-          <label>Start Bridge</label>
-          <input type="text" id="editStart" class="form-control">
-        </div>
-        <div class="form-group">
-          <label>End Bridge</label>
-          <input type="text" id="editEnd" class="form-control">
         </div>
         <div class="form-group">
           <label>Role</label>
@@ -125,30 +119,58 @@
       const body = document.getElementById('participantsBody');
 
       if (data.participants.length === 0) {
-        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:2rem">No participants found.</td></tr>';
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:2rem">No participants found.</td></tr>';
         document.getElementById('pagination').innerHTML = '';
         return;
       }
 
       const participants = data.participants;
+      const isMobile = window.innerWidth <= 768;
+
+      // Desktop table
       body.innerHTML = participants.map((p, i) => `
         <tr style="cursor:pointer" class="participant-row" data-idx="${i}">
           <td><strong>${App.escapeHtml(p.full_name || '--')}</strong></td>
           <td>${App.escapeHtml(p.email)}</td>
           <td>${App.escapeHtml(p.phone || '--')}</td>
-          <td>${App.escapeHtml(p.start_bridge || '--')}</td>
-          <td>${App.escapeHtml(p.end_bridge || '--')}</td>
           <td>${p.strava_connected ? '<span class="badge badge-strava">Yes</span>' : 'No'}</td>
           <td>${App.formatDate(p.registered_at)}</td>
           <td><button class="btn btn-outline btn-sm participant-edit-btn" data-idx="${i}">Edit</button></td>
         </tr>
       `).join('');
 
+      // Mobile cards
+      const cards = document.getElementById('participantsCards');
+      cards.innerHTML = participants.map((p, i) => `
+        <div class="card participant-card" data-idx="${i}" style="cursor:pointer; margin-bottom:0.75rem">
+          <div class="flex-between" style="align-items:start">
+            <div>
+              <strong style="font-size:1rem">${App.escapeHtml(p.full_name || '--')}</strong>
+              <div class="text-muted" style="font-size:0.8125rem; margin-top:0.25rem">${App.escapeHtml(p.email)}</div>
+            </div>
+            <button class="btn btn-outline btn-sm participant-edit-btn" data-idx="${i}">Edit</button>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:0.5rem 1.5rem; margin-top:0.75rem; font-size:0.8125rem; color:var(--text-muted)">
+            ${p.phone ? `<span>Phone: ${App.escapeHtml(p.phone)}</span>` : ''}
+            ${p.strava_connected ? '<span class="badge badge-strava">Strava</span>' : ''}
+            <span>${App.formatDate(p.registered_at)}</span>
+          </div>
+        </div>
+      `).join('');
+
+      // Toggle visibility
+      document.querySelector('.participants-table').style.display = isMobile ? 'none' : '';
+      cards.style.display = isMobile ? '' : 'none';
+
+      // Event listeners for both views
       body.querySelectorAll('.participant-row').forEach(row => {
         row.addEventListener('click', () => openEdit(participants[row.dataset.idx]));
       });
-      body.querySelectorAll('.participant-edit-btn').forEach(btn => {
+      document.querySelectorAll('.participant-edit-btn').forEach(btn => {
         btn.addEventListener('click', (e) => { e.stopPropagation(); openEdit(participants[btn.dataset.idx]); });
+      });
+      cards.querySelectorAll('.participant-card').forEach(card => {
+        card.addEventListener('click', () => openEdit(participants[card.dataset.idx]));
       });
 
       // Pagination
@@ -175,8 +197,6 @@
       document.getElementById('editPhone').value = p.phone || '';
       document.getElementById('editEcName').value = p.emergency_contact_name || '';
       document.getElementById('editEcPhone').value = p.emergency_contact_phone || '';
-      document.getElementById('editStart').value = p.start_bridge || '';
-      document.getElementById('editEnd').value = p.end_bridge || '';
       document.getElementById('editRole').value = p.role || 'participant';
       document.getElementById('editModal').classList.add('active');
     }
@@ -196,8 +216,6 @@
             phone: document.getElementById('editPhone').value,
             emergency_contact_name: document.getElementById('editEcName').value,
             emergency_contact_phone: document.getElementById('editEcPhone').value,
-            start_bridge: document.getElementById('editStart').value,
-            end_bridge: document.getElementById('editEnd').value,
             role: document.getElementById('editRole').value,
           }),
         });

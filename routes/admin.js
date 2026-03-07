@@ -85,14 +85,13 @@ router.get('/api/participants/export', async (req, res) => {
 router.put('/api/participants/:id', async (req, res) => {
   try {
     const { full_name, phone, emergency_contact_name, emergency_contact_phone,
-            start_bridge, end_bridge, role } = req.body;
+            role } = req.body;
 
     const result = await db.query(
       `UPDATE participants SET full_name = $1, phone = $2, emergency_contact_name = $3,
-       emergency_contact_phone = $4, start_bridge = $5, end_bridge = $6,
-       role = $7 WHERE id = $8 RETURNING *`,
+       emergency_contact_phone = $4, role = $5 WHERE id = $6 RETURNING *`,
       [full_name, phone, emergency_contact_name, emergency_contact_phone,
-       start_bridge, end_bridge, role, req.params.id]
+       role, req.params.id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Participant not found' });

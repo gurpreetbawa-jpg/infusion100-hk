@@ -150,7 +150,7 @@ router.get('/locations/live', async (req, res) => {
   try {
     const result = await db.query(`
       SELECT DISTINCT ON (p.id)
-        p.id, p.full_name, p.avatar_url, p.start_bridge, p.end_bridge,
+        p.id, p.full_name, p.avatar_url,
         lp.lat, lp.lng, lp.recorded_at,
         ts.status as tracking_status
       FROM participants p

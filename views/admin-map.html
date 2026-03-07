@@ -81,7 +81,6 @@
             <div style="min-width:180px">
               <strong>${App.escapeHtml(p.full_name || 'Unknown')}</strong><br>
               <span style="color:${color};font-weight:600">${status}</span><br>
-              Route: ${App.escapeHtml(p.start_bridge || '?')} &rarr; ${App.escapeHtml(p.end_bridge || '?')}<br>
               <small>Last ping: ${new Date(p.recorded_at).toLocaleString()}</small>
             </div>
           `;
