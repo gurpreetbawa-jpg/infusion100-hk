@@ -68,6 +68,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// Request logging
+app.use((req, res, next) => {
+  // Skip static files and noisy endpoints
+  if (req.path.match(/\.(css|js|ico|png|jpg|svg|woff2?)$/) || req.path === '/api/locations/live') {
+    return next();
+  }
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    const user = req.user ? req.user.full_name || req.user.email : 'anonymous';
+    const status = res.statusCode;
+    const color = status >= 500 ? '\x1b[31m' : status >= 400 ? '\x1b[33m' : '\x1b[32m';
+    console.log(`${color}${req.method} ${req.path} ${status}\x1b[0m ${ms}ms [${user}]`);
+  });
+  next();
+});
+
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -84,6 +101,46 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Infusion100 running on http://localhost:${PORT}`);
+app.listen(PORT, async () => {
+  console.log('');
+  console.log('  ╔══════════════════════════════════════╗');
+  console.log('  ║         Infusion100 Server           ║');
+  console.log('  ╚══════════════════════════════════════╝');
+  console.log('');
+  console.log(`  URL:          http://localhost:${PORT}`);
+  console.log(`  Environment:  ${process.env.NODE_ENV || 'development'}`);
+  console.log(`  Node:         ${process.version}`);
+  console.log('');
+
+  // Database check
+  try {
+    const dbResult = await pool.query('SELECT NOW() AS time, current_database() AS db');
+    const row = dbResult.rows[0];
+    console.log(`  Database:     ${row.db} (connected)`);
+  } catch (err) {
+    console.log(`  Database:     FAILED - ${err.message}`);
+  }
+
+  // Table check
+  try {
+    const tables = await pool.query(`
+      SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename
+    `);
+    console.log(`  Tables:       ${tables.rows.map(r => r.tablename).join(', ')}`);
+
+    const pCount = await pool.query('SELECT COUNT(*) FROM participants');
+    const bCount = await pool.query('SELECT COUNT(*) FROM bridges');
+    const wCount = await pool.query('SELECT COUNT(*) FROM walks');
+    console.log(`  Participants: ${pCount.rows[0].count}`);
+    console.log(`  Bridges:      ${bCount.rows[0].count}`);
+    console.log(`  Walks:        ${wCount.rows[0].count}`);
+  } catch {}
+
+  // OAuth config check
+  console.log('');
+  console.log('  OAuth:');
+  console.log(`    Google:     ${process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not configured'}`);
+  console.log(`    Apple:      ${process.env.APPLE_CLIENT_ID ? 'configured' : 'not configured'}`);
+  console.log(`    Strava:     ${process.env.STRAVA_CLIENT_ID ? 'configured' : 'not configured'}`);
+  console.log('');
 });

@@ -37,6 +37,7 @@ router.put('/me', isAuthenticated, async (req, res) => {
       [full_name, phone, emergency_contact_name, emergency_contact_phone,
        justgiving_url, start_bridge, end_bridge, gdpr_consent, req.user.id]
     );
+    console.log(`[PROFILE] Updated: ${full_name} (id:${req.user.id})`);
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Update profile error:', err);
@@ -93,6 +94,7 @@ router.post('/tracking/start', isAuthenticated, async (req, res) => {
       'INSERT INTO tracking_sessions (participant_id) VALUES ($1) RETURNING *',
       [req.user.id]
     );
+    console.log(`[TRACKING] Started: ${req.user.full_name || req.user.email} (id:${req.user.id})`);
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Failed to start tracking' });
@@ -106,6 +108,7 @@ router.post('/tracking/stop', isAuthenticated, async (req, res) => {
        WHERE participant_id = $1 AND status = 'active'`,
       [req.user.id]
     );
+    console.log(`[TRACKING] Stopped: ${req.user.full_name || req.user.email} (id:${req.user.id})`);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to stop tracking' });
@@ -207,6 +210,7 @@ router.post('/walks', isAuthenticated, upload.single('gpx'), async (req, res) =>
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [req.user.id, date, distance_km, duration_mins, caption, gpxPath]
     );
+    console.log(`[WALK] Logged: "${caption || 'Walk'}" ${distance_km}km by ${req.user.full_name} (id:${req.user.id})`);
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Log walk error:', err);
@@ -314,6 +318,7 @@ router.delete('/walks/:id', isAuthenticated, async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Walk not found' });
     }
+    console.log(`[WALK] Deleted: walk ${req.params.id} by ${req.user.full_name} (id:${req.user.id})`);
     res.json({ deleted: true });
   } catch (err) {
     console.error('Delete walk error:', err);
@@ -406,6 +411,7 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
       page++;
     }
 
+    console.log(`[STRAVA] Synced ${imported} activity(ies) for ${req.user.full_name} (id:${req.user.id})`);
     res.json({ imported, message: `Imported ${imported} new activity(ies) from Strava` });
   } catch (err) {
     console.error('Strava sync error:', err);

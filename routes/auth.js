@@ -10,6 +10,7 @@ router.get('/google', passport.authenticate('google', {
 router.get('/callback/google', passport.authenticate('google', {
   failureRedirect: '/login?error=google_failed',
 }), (req, res) => {
+  console.log(`[AUTH] Google login: ${req.user.email} (id:${req.user.id})`);
   if (!req.user.profile_complete) {
     return res.redirect('/register');
   }
@@ -22,6 +23,7 @@ router.post('/apple', passport.authenticate('apple'));
 router.post('/callback/apple', passport.authenticate('apple', {
   failureRedirect: '/login?error=apple_failed',
 }), (req, res) => {
+  console.log(`[AUTH] Apple login: ${req.user.email} (id:${req.user.id})`);
   if (!req.user.profile_complete) {
     return res.redirect('/register');
   }
@@ -64,6 +66,7 @@ router.get('/callback/strava', async (req, res) => {
         [encrypt(data.access_token), encrypt(data.refresh_token),
          data.expires_at, data.athlete.id, req.user.id]
       );
+      console.log(`[AUTH] Strava linked: ${req.user.email} (athlete:${data.athlete.id})`);
       res.redirect('/dashboard?strava=connected');
     } else {
       res.redirect('/dashboard?error=strava_failed');
@@ -76,6 +79,7 @@ router.get('/callback/strava', async (req, res) => {
 
 // Logout
 router.get('/logout', (req, res) => {
+  console.log(`[AUTH] Logout: ${req.user?.email || 'unknown'}`);
   req.logout(() => {
     req.session.destroy(() => {
       res.redirect('/');
