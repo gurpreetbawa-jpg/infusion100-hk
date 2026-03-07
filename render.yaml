@@ -8,9 +8,8 @@ services:
     name: infusion100
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && node db/init.js
     startCommand: node server.js
-    preDeployCommand: node db/init.js
     envVars:
       - key: NODE_ENV
         value: production
