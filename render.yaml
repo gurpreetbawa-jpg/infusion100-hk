@@ -39,3 +39,5 @@ services:
         sync: false
       - key: STRAVA_CALLBACK_URL
         sync: false
+      - key: ADMIN_EMAILS
+        sync: false

@@ -100,14 +100,16 @@ router.get('/callback/strava', async (req, res) => {
            data.expires_at, athlete.id, email]
         );
       } else {
+        const { ADMIN_EMAILS } = require('../config/passport');
+        const role = ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admin' : 'participant';
         existing = await db.query(
           `INSERT INTO participants (oauth_provider, oauth_id, email, full_name, avatar_url,
-           strava_token, strava_refresh_token, strava_token_expires_at, strava_athlete_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+           strava_token, strava_refresh_token, strava_token_expires_at, strava_athlete_id, role)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
           ['strava', String(athlete.id), email,
            `${athlete.firstname || ''} ${athlete.lastname || ''}`.trim(),
            athlete.profile, encrypt(data.access_token), encrypt(data.refresh_token),
-           data.expires_at, athlete.id]
+           data.expires_at, athlete.id, role]
         );
       }
     } else {

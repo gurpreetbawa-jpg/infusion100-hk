@@ -3,6 +3,8 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
 const db = require('../db');
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+
 passport.serializeUser((user, done) => {
   done(null, user.id);
 });
@@ -10,7 +12,12 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (id, done) => {
   try {
     const result = await db.query('SELECT * FROM participants WHERE id = $1', [id]);
-    done(null, result.rows[0] || null);
+    const user = result.rows[0] || null;
+    if (user && ADMIN_EMAILS.includes(user.email.toLowerCase()) && user.role !== 'admin') {
+      await db.query('UPDATE participants SET role = $1 WHERE id = $2', ['admin', user.id]);
+      user.role = 'admin';
+    }
+    done(null, user);
   } catch (err) {
     done(err, null);
   }
@@ -45,10 +52,11 @@ if (process.env.GOOGLE_CLIENT_ID) {
         return done(null, updated.rows[0]);
       }
 
+      const role = ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admin' : 'participant';
       const result = await db.query(
-        `INSERT INTO participants (oauth_provider, oauth_id, email, full_name, avatar_url)
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        ['google', profile.id, email, profile.displayName, profile.photos?.[0]?.value]
+        `INSERT INTO participants (oauth_provider, oauth_id, email, full_name, avatar_url, role)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        ['google', profile.id, email, profile.displayName, profile.photos?.[0]?.value, role]
       );
       done(null, result.rows[0]);
     } catch (err) {
@@ -85,10 +93,11 @@ if (process.env.GITHUB_CLIENT_ID) {
         return done(null, updated.rows[0]);
       }
 
+      const role = ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admin' : 'participant';
       const result = await db.query(
-        `INSERT INTO participants (oauth_provider, oauth_id, email, full_name, avatar_url)
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        ['github', profile.id, email, profile.displayName || profile.username, profile.photos?.[0]?.value]
+        `INSERT INTO participants (oauth_provider, oauth_id, email, full_name, avatar_url, role)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        ['github', profile.id, email, profile.displayName || profile.username, profile.photos?.[0]?.value, role]
       );
       done(null, result.rows[0]);
     } catch (err) {
@@ -98,3 +107,4 @@ if (process.env.GITHUB_CLIENT_ID) {
 }
 
 module.exports = passport;
+module.exports.ADMIN_EMAILS = ADMIN_EMAILS;
