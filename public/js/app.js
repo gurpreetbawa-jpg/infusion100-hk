@@ -164,6 +164,7 @@ App.buildNav = function () {
         ['/community', 'Community'],
         ['/stats', 'My Stats'],
         ['/leaderboard', 'Live Map'],
+        ...(this.user.role === 'admin' ? [['/admin', 'Admin']] : []),
         ['/auth/logout', 'Log Out'],
       ]
     : [

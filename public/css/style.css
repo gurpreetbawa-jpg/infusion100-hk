@@ -785,7 +785,8 @@ tr:hover td { background: var(--surface-alt); }
     right: 0;
     background: var(--primary);
     flex-direction: column;
-    padding: 1rem;
+    gap: 0.5rem;
+    padding: 1.25rem 1rem;
     transform: translateY(-100%);
     opacity: 0;
     transition: all 0.3s;
@@ -799,9 +800,17 @@ tr:hover td { background: var(--surface-alt); }
     pointer-events: auto;
   }
 
+  .navbar-links li {
+    width: 100%;
+  }
+
   .navbar-links a {
+    display: block;
     padding: 0.75rem 1rem;
     width: 100%;
+    border-radius: 0.5rem;
+    text-align: left;
+    font-size: 1.0625rem;
   }
 
   .hero h1 { font-size: 2rem; }
