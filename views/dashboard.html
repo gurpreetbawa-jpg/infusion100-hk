@@ -85,7 +85,7 @@
     </div>
 
     <!-- Strava -->
-    <div class="card">
+    <div class="card hidden" id="stravaCard">
       <div class="flex-between">
         <h2>Strava Integration</h2>
         <span id="stravaStatus"></span>
@@ -131,8 +131,11 @@
       // Profile
       renderProfile();
 
-      // Strava
-      renderStrava();
+      // Strava (only for eligible users)
+      if (user.strava_eligible) {
+        document.getElementById('stravaCard').classList.remove('hidden');
+        renderStrava();
+      }
 
       // Recent walks
       loadRecentWalks();

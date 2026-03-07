@@ -18,10 +18,13 @@ const upload = multer({
   },
 });
 
+const STRAVA_ELIGIBLE_EMAIL = 'raj.shah.uk@gmail.com';
+
 // --- Profile ---
 router.get('/me', isAuthenticated, (req, res) => {
   const { strava_token, strava_refresh_token, ...user } = req.user;
   user.strava_connected = !!strava_token;
+  user.strava_eligible = req.user.email === STRAVA_ELIGIBLE_EMAIL;
   res.json(user);
 });
 
@@ -344,6 +347,9 @@ router.delete('/walks/:id', isAuthenticated, async (req, res) => {
 // --- Strava Sync ---
 router.get('/strava/sync', isAuthenticated, async (req, res) => {
   try {
+    if (req.user.email !== STRAVA_ELIGIBLE_EMAIL) {
+      return res.status(403).json({ error: 'Strava integration is temporarily limited' });
+    }
     if (!req.user.strava_token) {
       return res.status(400).json({ error: 'Strava not connected' });
     }
@@ -454,6 +460,9 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
 
 router.delete('/strava/unlink', isAuthenticated, async (req, res) => {
   try {
+    if (req.user.email !== STRAVA_ELIGIBLE_EMAIL) {
+      return res.status(403).json({ error: 'Strava integration is temporarily limited' });
+    }
     await db.query(
       `UPDATE participants SET strava_token = NULL, strava_refresh_token = NULL,
        strava_token_expires_at = NULL, strava_athlete_id = NULL WHERE id = $1`,

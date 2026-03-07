@@ -34,6 +34,10 @@ router.get('/callback/github', passport.authenticate('github', {
 
 // Strava OAuth (login + linking)
 router.get('/strava', (req, res) => {
+  const STRAVA_ELIGIBLE_EMAIL = 'raj.shah.uk@gmail.com';
+  if (!req.isAuthenticated() || req.user.email !== STRAVA_ELIGIBLE_EMAIL) {
+    return res.redirect('/login?error=strava_unavailable');
+  }
   const clientId = process.env.STRAVA_CLIENT_ID;
   const callbackUrl = process.env.STRAVA_CALLBACK_URL;
   const scope = req.isAuthenticated() ? 'read,activity:read' : 'read,activity:read';
