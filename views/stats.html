@@ -16,7 +16,7 @@
   <div class="container container-md">
     <div class="page-header">
       <h1>My Stats</h1>
-      <a href="/walk/log" class="btn btn-primary btn-sm">Log a Walk</a>
+      <a href="/walk/log" class="btn btn-primary btn-sm">Log Activity</a>
     </div>
 
     <div class="stats-grid">
@@ -25,12 +25,12 @@
         <div class="stat-label">Total Distance</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value" id="totalWalks">--</div>
-        <div class="stat-label">Total Walks</div>
+        <div class="stat-value" id="totalActivities">--</div>
+        <div class="stat-label">Activities</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value" id="longestWalk">--</div>
-        <div class="stat-label">Longest Walk</div>
+        <div class="stat-value" id="longestActivity">--</div>
+        <div class="stat-label">Longest Activity</div>
       </div>
     </div>
 
@@ -40,7 +40,7 @@
     </div>
 
     <div class="card">
-      <h2>All Walks</h2>
+      <h2>All Activities</h2>
       <div id="walksList" class="mt-1">
         <div class="loading-overlay"><span class="spinner"></span> Loading...</div>
       </div>
@@ -55,8 +55,8 @@
 
       const stats = await App.fetchJSON('/api/stats');
       document.getElementById('totalDistance').textContent = App.formatDistance(stats.total_distance);
-      document.getElementById('totalWalks').textContent = stats.total_walks;
-      document.getElementById('longestWalk').textContent = App.formatDistance(stats.longest_walk);
+      document.getElementById('totalActivities').textContent = stats.total_walks;
+      document.getElementById('longestActivity').textContent = App.formatDistance(stats.longest_walk);
 
       renderHeatmap(stats.calendar);
 
@@ -65,7 +65,7 @@
       const list = document.getElementById('walksList');
 
       if (data.walks.length === 0) {
-        list.innerHTML = '<p class="text-muted">No walks yet. <a href="/walk/log">Log your first!</a></p>';
+        list.innerHTML = '<p class="text-muted">No activities yet. <a href="/walk/log">Log your first!</a></p>';
         return;
       }
 
