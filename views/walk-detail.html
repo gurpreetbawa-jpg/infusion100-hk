@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Walk Details - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links" id="navLinks"></ul>
+  </nav>
+
+  <div class="container container-md">
+    <div id="walkContent">
+      <div class="loading-overlay"><span class="spinner"></span> Loading walk...</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    const walkId = window.location.pathname.split('/').pop();
+
+    async function loadWalk() {
+      try {
+        const walk = await App.fetchJSON(`/api/walks/${walkId}`);
+        const user = await App.loadUser();
+
+        document.getElementById('walkContent').innerHTML = `
+          <div class="walk-card">
+            <div class="walk-card-header">
+              ${App.renderAvatar(walk)}
+              <div class="walk-card-meta">
+                <div class="walk-card-name">${App.escapeHtml(walk.full_name)}</div>
+                <div class="walk-card-date">${App.formatDate(walk.date)}</div>
+              </div>
+              ${walk.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(walk.activity_type || 'Strava')}</span>` : ''}
+            </div>
+
+            ${walk.caption ? `<p class="walk-card-caption">${App.escapeHtml(walk.caption)}</p>` : ''}
+
+            <div class="walk-card-stats">
+              <span><strong>${App.formatDistance(walk.distance_km)}</strong></span>
+              <span>${App.formatDuration(walk.duration_mins)}</span>
+            </div>
+
+            ${walk.polyline ? `<div id="walkMap" class="walk-card-map"></div>` : ''}
+
+            <div class="walk-card-actions">
+              <button onclick="toggleLike()" id="likeBtn" class="${walk.user_liked ? 'liked' : ''}">
+                ${walk.user_liked ? '&#10084;' : '&#9825;'} <span id="likeCount">${walk.like_count}</span>
+              </button>
+              <span class="text-muted" style="font-size:0.875rem">${walk.comments?.length || 0} comment(s)</span>
+            </div>
+
+            <div class="comments-section">
+              <div id="commentsList">
+                ${(walk.comments || []).map(c => renderComment(c)).join('')}
+              </div>
+              ${user ? `
+                <form class="comment-form" onsubmit="postComment(event)">
+                  <input type="text" id="commentInput" placeholder="Write a comment..." required>
+                  <button type="submit" class="btn btn-primary btn-sm">Post</button>
+                </form>
+              ` : '<p class="text-muted mt-1" style="font-size:0.875rem"><a href="/login">Log in</a> to comment.</p>'}
+            </div>
+          </div>
+        `;
+
+        // Decode polyline and show map
+        if (walk.polyline) {
+          const map = L.map('walkMap');
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+          }).addTo(map);
+          const coords = decodePolyline(walk.polyline);
+          const line = L.polyline(coords, { color: '#FC4C02', weight: 3 }).addTo(map);
+          map.fitBounds(line.getBounds(), { padding: [20, 20] });
+        }
+      } catch (err) {
+        document.getElementById('walkContent').innerHTML = `<div class="alert alert-danger">Walk not found.</div>`;
+      }
+    }
+
+    function renderComment(c) {
+      return `
+        <div class="comment">
+          ${App.renderAvatar(c, 'sm')}
+          <div class="comment-body">
+            <div class="comment-name">${App.escapeHtml(c.full_name)}</div>
+            <div class="comment-text">${App.escapeHtml(c.body)}</div>
+            <div class="comment-time">${App.formatRelative(c.created_at)}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function toggleLike() {
+      try {
+        const result = await App.fetchJSON(`/api/walks/${walkId}/like`, { method: 'POST' });
+        const btn = document.getElementById('likeBtn');
+        btn.className = result.liked ? 'liked' : '';
+        btn.innerHTML = `${result.liked ? '&#10084;' : '&#9825;'} <span id="likeCount">${result.count}</span>`;
+      } catch {}
+    }
+
+    async function postComment(e) {
+      e.preventDefault();
+      const input = document.getElementById('commentInput');
+      const body = input.value.trim();
+      if (!body) return;
+
+      try {
+        const comment = await App.fetchJSON(`/api/walks/${walkId}/comments`, {
+          method: 'POST',
+          body: JSON.stringify({ body }),
+        });
+        document.getElementById('commentsList').innerHTML += renderComment(comment);
+        input.value = '';
+      } catch {}
+    }
+
+    // Decode Google polyline encoding
+    function decodePolyline(str) {
+      const coords = [];
+      let index = 0, lat = 0, lng = 0;
+      while (index < str.length) {
+        let shift = 0, result = 0, b;
+        do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+        shift = 0; result = 0;
+        do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+        coords.push([lat / 1e5, lng / 1e5]);
+      }
+      return coords;
+    }
+
+    loadWalk();
+  </script>
+</body>
+</html>

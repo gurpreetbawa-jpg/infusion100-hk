@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Live Map - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links">
+      <li><a href="/admin">Admin</a></li>
+      <li><a href="/admin/participants">Participants</a></li>
+      <li><a href="/admin/map" class="active">Live Map</a></li>
+      <li><a href="/auth/logout">Log Out</a></li>
+    </ul>
+  </nav>
+
+  <div style="padding:0.5rem 1rem; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between">
+    <span style="font-weight:600">Admin Live Map</span>
+    <span id="participantCount" class="text-muted" style="font-size:0.875rem"></span>
+  </div>
+
+  <div id="adminMap" class="map-container-full" style="height:calc(100vh - 64px - 45px)"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    const map = L.map('adminMap').setView([51.49, -0.12], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    const markers = {};
+
+    async function init() {
+      const bridges = await App.fetchJSON('/api/bridges');
+      bridges.forEach(b => {
+        L.circleMarker([b.lat, b.lng], {
+          radius: 7, fillColor: '#1A1F36', color: '#fff', weight: 2, fillOpacity: 0.8
+        }).addTo(map).bindPopup(`<strong>${b.name}</strong>`);
+      });
+
+      if (bridges.length) {
+        const coords = bridges.map(b => [b.lat, b.lng]);
+        L.polyline(coords, { color: '#1A1F36', weight: 2, opacity: 0.3, dashArray: '6,6' }).addTo(map);
+      }
+
+      refresh();
+      setInterval(refresh, 30000);
+    }
+
+    async function refresh() {
+      try {
+        const participants = await App.fetchJSON('/api/locations/live');
+        document.getElementById('participantCount').textContent =
+          `${participants.length} participant(s) with location data`;
+
+        const activeIds = new Set(participants.map(p => p.id));
+        Object.keys(markers).forEach(id => {
+          if (!activeIds.has(parseInt(id))) {
+            map.removeLayer(markers[id]);
+            delete markers[id];
+          }
+        });
+
+        participants.forEach(p => {
+          const isActive = p.tracking_status === 'active';
+          const color = isActive ? '#10B981' : '#6B7280';
+          const status = isActive ? 'Actively tracking' : 'Tracking stopped';
+
+          const popupContent = `
+            <div style="min-width:180px">
+              <strong>${App.escapeHtml(p.full_name || 'Unknown')}</strong><br>
+              <span style="color:${color};font-weight:600">${status}</span><br>
+              Route: ${App.escapeHtml(p.start_bridge || '?')} &rarr; ${App.escapeHtml(p.end_bridge || '?')}<br>
+              <small>Last ping: ${new Date(p.recorded_at).toLocaleString()}</small>
+            </div>
+          `;
+
+          if (markers[p.id]) {
+            markers[p.id].setLatLng([p.lat, p.lng]);
+            markers[p.id].setStyle({ fillColor: color, color: color });
+            markers[p.id].setPopupContent(popupContent);
+          } else {
+            const marker = L.circleMarker([p.lat, p.lng], {
+              radius: 10, fillColor: color, color: color, weight: 2, fillOpacity: 0.9
+            }).addTo(map);
+            marker.bindPopup(popupContent);
+
+            const name = (p.full_name || 'Unknown').split(' ')[0];
+            marker.bindTooltip(name, {
+              permanent: true, direction: 'top', offset: [0, -10],
+              className: 'participant-label'
+            });
+
+            markers[p.id] = marker;
+          }
+        });
+      } catch {}
+    }
+
+    init();
+  </script>
+  <style>
+    .participant-label {
+      background: var(--primary) !important;
+      color: white !important;
+      border: none !important;
+      border-radius: 4px !important;
+      padding: 2px 6px !important;
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+    }
+    .participant-label::before { display: none !important; }
+  </style>
+</body>
+</html>

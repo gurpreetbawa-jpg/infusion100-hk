@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log a Walk - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links" id="navLinks"></ul>
+  </nav>
+
+  <div class="container container-sm">
+    <div class="card">
+      <h1 style="font-size:1.5rem; margin-bottom:1rem">Log a Practice Walk</h1>
+      <div id="alertBox"></div>
+
+      <form id="walkForm">
+        <div class="form-group">
+          <label for="date">Date *</label>
+          <input type="date" id="date" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label>Distance *</label>
+          <div class="flex gap-1" style="align-items:center">
+            <input type="number" id="distance" class="form-control" step="0.1" min="0" required style="flex:1">
+            <div class="toggle-group">
+              <button type="button" class="active" data-unit="km" onclick="setUnit('km')">km</button>
+              <button type="button" data-unit="miles" onclick="setUnit('miles')">miles</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="duration">Duration (minutes)</label>
+          <input type="number" id="duration" class="form-control" min="0" placeholder="e.g. 90">
+        </div>
+
+        <div class="form-group">
+          <label for="caption">Route Description / Caption</label>
+          <textarea id="caption" class="form-control" rows="3" placeholder="Describe your walk..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="gpx">GPX File (optional)</label>
+          <input type="file" id="gpx" accept=".gpx" class="form-control">
+          <p class="form-hint">Upload a GPX file to show your route on a map.</p>
+        </div>
+
+        <div id="gpxMap" class="map-container hidden" style="height:250px; margin-bottom:1rem"></div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="submitBtn">
+          Save Walk
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    App.loadUser();
+    let unit = 'km';
+    let gpxMap;
+
+    document.getElementById('date').valueAsDate = new Date();
+
+    function setUnit(u) {
+      unit = u;
+      document.querySelectorAll('.toggle-group button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.unit === u);
+      });
+    }
+
+    // GPX preview
+    document.getElementById('gpx').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(ev.target.result, 'text/xml');
+          const points = doc.querySelectorAll('trkpt');
+          if (points.length === 0) return;
+
+          const coords = Array.from(points).map(pt => [
+            parseFloat(pt.getAttribute('lat')),
+            parseFloat(pt.getAttribute('lon'))
+          ]);
+
+          const mapEl = document.getElementById('gpxMap');
+          mapEl.classList.remove('hidden');
+
+          if (!gpxMap) {
+            gpxMap = L.map('gpxMap');
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '&copy; OpenStreetMap'
+            }).addTo(gpxMap);
+          }
+
+          gpxMap.eachLayer(l => { if (l instanceof L.Polyline) gpxMap.removeLayer(l); });
+          const line = L.polyline(coords, { color: '#FC4C02', weight: 3 }).addTo(gpxMap);
+          gpxMap.fitBounds(line.getBounds(), { padding: [20, 20] });
+        } catch {}
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('walkForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Saving...';
+
+      try {
+        let distKm = parseFloat(document.getElementById('distance').value);
+        if (unit === 'miles') distKm = distKm * 1.60934;
+
+        const formData = new FormData();
+        formData.append('date', document.getElementById('date').value);
+        formData.append('distance_km', distKm.toFixed(2));
+        formData.append('duration_mins', document.getElementById('duration').value || '');
+        formData.append('caption', document.getElementById('caption').value);
+
+        const gpxFile = document.getElementById('gpx').files[0];
+        if (gpxFile) formData.append('gpx', gpxFile);
+
+        const res = await fetch('/api/walks', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Failed to save walk');
+        const walk = await res.json();
+        window.location.href = `/walk/${walk.id}`;
+      } catch (err) {
+        App.showAlert(document.getElementById('alertBox'), err.message, 'danger');
+        btn.disabled = false;
+        btn.textContent = 'Save Walk';
+      }
+    });
+  </script>
+</body>
+</html>

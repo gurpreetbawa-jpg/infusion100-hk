@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Day - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links" id="navLinks"></ul>
+  </nav>
+
+  <div id="trackingBanner" class="tracking-banner hidden">
+    <span class="pulse"></span>
+    <span id="bannerText">GPS tracking active</span>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white" onclick="stopTracking()">Stop</button>
+  </div>
+
+  <div class="container">
+    <div id="alertBox"></div>
+
+    <div class="page-header">
+      <h1>Event Day</h1>
+      <span class="badge badge-info" id="eventStatus">16 May 2026</span>
+    </div>
+
+    <div class="card">
+      <h2>GPS Tracking</h2>
+      <p class="text-muted mt-1 mb-2">
+        Track your location on event day so friends and family can follow your progress on the live map.
+        Keep this page open while walking.
+      </p>
+
+      <div id="trackingControls">
+        <button class="btn btn-primary btn-lg btn-block" id="startBtn" onclick="startTracking()">
+          I'm Walking &mdash; Start Tracking
+        </button>
+      </div>
+
+      <div id="trackingInfo" class="hidden mt-2">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="pingCount">0</div>
+            <div class="stat-label">Location Pings Sent</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="lastPing">--</div>
+            <div class="stat-label">Last Update</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Your Route</h2>
+      <div id="eventMap" class="map-container mt-1"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tips for Event Day</h2>
+      <ul style="padding-left:1.25rem; line-height:2">
+        <li>Keep this browser tab open while walking for GPS tracking to work.</li>
+        <li>Ensure your phone's location services are enabled.</li>
+        <li>Carry a portable charger — GPS tracking uses battery.</li>
+        <li>Stay hydrated and take breaks as needed.</li>
+        <li>Share the <a href="/leaderboard">Live Map</a> link with friends and family!</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    let watchId = null;
+    let pingCount = 0;
+    let map;
+
+    async function init() {
+      const user = await App.loadUser();
+      if (!user) return window.location.href = '/login';
+
+      // Init map
+      map = L.map('eventMap').setView([51.48, -0.12], 11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+
+      const bridges = await App.fetchJSON('/api/bridges');
+      bridges.forEach(b => {
+        L.circleMarker([b.lat, b.lng], {
+          radius: 6, fillColor: '#FC4C02', color: '#fff', weight: 2, fillOpacity: 0.9
+        }).addTo(map).bindPopup(`<strong>${b.name}</strong>`);
+      });
+
+      if (bridges.length) {
+        const coords = bridges.map(b => [b.lat, b.lng]);
+        L.polyline(coords, { color: '#1A1F36', weight: 2, opacity: 0.3, dashArray: '6,6' }).addTo(map);
+        map.fitBounds(coords, { padding: [30, 30] });
+      }
+
+      // Check if already tracking
+      const status = await App.fetchJSON('/api/tracking/status');
+      if (status.active) {
+        showTrackingUI();
+      }
+
+      // Show other participants on the map
+      refreshParticipants();
+      setInterval(refreshParticipants, 30000);
+    }
+
+    const participantMarkers = {};
+
+    async function refreshParticipants() {
+      try {
+        const participants = await App.fetchJSON('/api/locations/live');
+        const user = App.user;
+
+        const activeIds = new Set(participants.map(p => p.id));
+        Object.keys(participantMarkers).forEach(id => {
+          if (!activeIds.has(parseInt(id))) {
+            map.removeLayer(participantMarkers[id]);
+            delete participantMarkers[id];
+          }
+        });
+
+        participants.forEach(p => {
+          const isMe = user && p.id === user.id;
+          const isActive = p.tracking_status === 'active';
+          const color = isMe ? '#FC4C02' : (isActive ? '#10B981' : '#6B7280');
+          const firstName = (p.full_name || 'Unknown').split(' ')[0];
+
+          if (participantMarkers[p.id]) {
+            participantMarkers[p.id].setLatLng([p.lat, p.lng]);
+            participantMarkers[p.id].setStyle({ fillColor: color, color: color });
+          } else {
+            const marker = L.circleMarker([p.lat, p.lng], {
+              radius: isMe ? 12 : 9, fillColor: color, color: color, weight: 2, fillOpacity: 0.9
+            }).addTo(map);
+
+            marker.bindPopup(`
+              <div style="text-align:center">
+                <strong>${App.escapeHtml(p.full_name || 'Unknown')}</strong>${isMe ? ' (You)' : ''}<br>
+                <span style="color:${color}">${isActive ? 'Walking' : 'Finished'}</span><br>
+                <small>Last update: ${App.formatRelative(p.recorded_at)}</small>
+              </div>
+            `);
+
+            marker.bindTooltip(isMe ? 'You' : firstName, {
+              permanent: true, direction: 'top', offset: [0, -10],
+              className: 'participant-label' + (isMe ? ' participant-label-me' : '')
+            });
+
+            participantMarkers[p.id] = marker;
+          }
+        });
+      } catch {}
+    }
+
+    async function startTracking() {
+      if (!('geolocation' in navigator)) {
+        App.showAlert(document.getElementById('alertBox'),
+          'Geolocation is not supported by your browser.', 'danger');
+        return;
+      }
+
+      try {
+        // Request permission
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true, timeout: 10000
+          });
+        });
+
+        await App.fetchJSON('/api/tracking/start', { method: 'POST' });
+        showTrackingUI();
+
+        // Try Wake Lock
+        if ('wakeLock' in navigator) {
+          try { await navigator.wakeLock.request('screen'); } catch {}
+        }
+
+        // Start watching
+        watchId = navigator.geolocation.watchPosition(
+          sendLocation,
+          (err) => console.warn('GPS error:', err.message),
+          { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 }
+        );
+
+        // Also send first location immediately
+        sendLocation(pos);
+
+      } catch (err) {
+        let msg = 'Location access denied. Please enable location services and try again.';
+        if (err.code === 2) msg = 'Location unavailable. Please check your GPS settings.';
+        if (err.code === 3) msg = 'Location request timed out. Please try again.';
+        App.showAlert(document.getElementById('alertBox'), msg, 'danger');
+      }
+    }
+
+    async function sendLocation(position) {
+      try {
+        await App.fetchJSON('/api/location', {
+          method: 'POST',
+          body: JSON.stringify({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }),
+        });
+        pingCount++;
+        document.getElementById('pingCount').textContent = pingCount;
+        document.getElementById('lastPing').textContent = new Date().toLocaleTimeString();
+      } catch {}
+    }
+
+    async function stopTracking() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      await App.fetchJSON('/api/tracking/stop', { method: 'POST' });
+      hideTrackingUI();
+    }
+
+    function showTrackingUI() {
+      document.getElementById('trackingBanner').classList.remove('hidden');
+      document.getElementById('trackingInfo').classList.remove('hidden');
+      document.getElementById('startBtn').classList.add('hidden');
+    }
+
+    function hideTrackingUI() {
+      document.getElementById('trackingBanner').classList.add('hidden');
+      document.getElementById('startBtn').classList.remove('hidden');
+      document.getElementById('startBtn').textContent = 'Resume Tracking';
+    }
+
+    init();
+  </script>
+  <style>
+    .participant-label {
+      background: var(--primary) !important;
+      color: white !important;
+      border: none !important;
+      border-radius: 4px !important;
+      padding: 2px 6px !important;
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+    }
+    .participant-label::before { display: none !important; }
+    .participant-label-me { background: #FC4C02 !important; }
+  </style>
+</body>
+</html>

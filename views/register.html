@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Complete Registration - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+  </nav>
+
+  <div class="container container-sm">
+    <div class="card mt-3">
+      <h1 style="font-size:1.5rem; margin-bottom:0.25rem">Complete Your Registration</h1>
+      <p class="text-muted mb-2">Fill in a few details to join the walk.</p>
+
+      <div id="alertBox"></div>
+
+      <form id="registerForm">
+        <div class="form-group">
+          <label for="full_name">Full Name *</label>
+          <input type="text" id="full_name" name="full_name" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" class="form-control" readonly>
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Phone Number *</label>
+          <input type="tel" id="phone" name="phone" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label for="emergency_contact_name">Emergency Contact Name *</label>
+          <input type="text" id="emergency_contact_name" name="emergency_contact_name" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label for="emergency_contact_phone">Emergency Contact Phone *</label>
+          <input type="tel" id="emergency_contact_phone" name="emergency_contact_phone" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label for="justgiving_url">JustGiving / Fundraising Page URL</label>
+          <input type="url" id="justgiving_url" name="justgiving_url" class="form-control" placeholder="https://www.justgiving.com/page/...">
+        </div>
+
+        <div class="form-check">
+          <input type="checkbox" id="gdpr_consent" required>
+          <label for="gdpr_consent" style="font-weight:400; font-size:0.875rem">
+            I consent to Infusion100 storing my data for the purposes of organising this charity event.
+            I have read and agree to the <a href="/privacy" target="_blank">Privacy Policy</a>. *
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="submitBtn">
+          Complete Registration
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    (async () => {
+      const user = await App.loadUser();
+      if (!user) return window.location.href = '/login';
+      if (user.profile_complete) return window.location.href = '/dashboard';
+
+      document.getElementById('full_name').value = user.full_name || '';
+      document.getElementById('email').value = user.email || '';
+
+      document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Saving...';
+
+        try {
+          await App.fetchJSON('/api/me', {
+            method: 'PUT',
+            body: JSON.stringify({
+              full_name: document.getElementById('full_name').value,
+              phone: document.getElementById('phone').value,
+              emergency_contact_name: document.getElementById('emergency_contact_name').value,
+              emergency_contact_phone: document.getElementById('emergency_contact_phone').value,
+              justgiving_url: document.getElementById('justgiving_url').value,
+              gdpr_consent: document.getElementById('gdpr_consent').checked,
+            }),
+          });
+          window.location.href = '/dashboard';
+        } catch (err) {
+          App.showAlert(document.getElementById('alertBox'), err.message, 'danger');
+          btn.disabled = false;
+          btn.textContent = 'Complete Registration';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

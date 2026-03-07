@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Stats - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links" id="navLinks"></ul>
+  </nav>
+
+  <div class="container container-md">
+    <div class="page-header">
+      <h1>My Stats</h1>
+      <a href="/walk/log" class="btn btn-primary btn-sm">Log a Walk</a>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="totalDistance">--</div>
+        <div class="stat-label">Total Distance</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="totalWalks">--</div>
+        <div class="stat-label">Total Walks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="longestWalk">--</div>
+        <div class="stat-label">Longest Walk</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Activity Calendar</h2>
+      <div class="heatmap" id="heatmap"></div>
+    </div>
+
+    <div class="card">
+      <h2>All Walks</h2>
+      <div id="walksList" class="mt-1">
+        <div class="loading-overlay"><span class="spinner"></span> Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    async function init() {
+      const user = await App.loadUser();
+      if (!user) return window.location.href = '/login';
+
+      const stats = await App.fetchJSON('/api/stats');
+      document.getElementById('totalDistance').textContent = App.formatDistance(stats.total_distance);
+      document.getElementById('totalWalks').textContent = stats.total_walks;
+      document.getElementById('longestWalk').textContent = App.formatDistance(stats.longest_walk);
+
+      renderHeatmap(stats.calendar);
+
+      // Load all walks
+      const data = await App.fetchJSON(`/api/walks?participant_id=${user.id}&limit=50`);
+      const list = document.getElementById('walksList');
+
+      if (data.walks.length === 0) {
+        list.innerHTML = '<p class="text-muted">No walks yet. <a href="/walk/log">Log your first!</a></p>';
+        return;
+      }
+
+      list.innerHTML = '<div class="table-container"><table><thead><tr><th>Date</th><th>Distance</th><th>Duration</th><th>Description</th><th></th></tr></thead><tbody>' +
+        data.walks.map(w => `
+          <tr>
+            <td>${App.formatDate(w.date)}</td>
+            <td>${App.formatDistance(w.distance_km)}</td>
+            <td>${App.formatDuration(w.duration_mins)}</td>
+            <td>${App.escapeHtml(w.caption || '--')} ${w.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}</td>
+            <td><a href="/walk/${w.id}" class="btn btn-outline btn-sm">View</a></td>
+          </tr>
+        `).join('') +
+        '</tbody></table></div>';
+    }
+
+    function renderHeatmap(calendar) {
+      const heatmap = document.getElementById('heatmap');
+      const dateMap = {};
+      let maxDist = 0;
+      calendar.forEach(d => {
+        dateMap[d.date.split('T')[0]] = parseFloat(d.distance);
+        maxDist = Math.max(maxDist, parseFloat(d.distance));
+      });
+
+      // March 1st 2026 to event day (May 16th 2026)
+      const startDate = new Date('2026-03-01');
+      // Align to Sunday
+      startDate.setDate(startDate.getDate() - startDate.getDay());
+      const endDate = new Date('2026-05-16');
+
+      // Count total weeks
+      let totalWeeks = 0;
+      const countDate = new Date(startDate);
+      while (countDate <= endDate) {
+        totalWeeks++;
+        countDate.setDate(countDate.getDate() + 7);
+      }
+
+      // Month labels with proportional widths
+      const months = [];
+      let monthTracker = new Date(startDate);
+      while (monthTracker <= endDate) {
+        const monthStart = new Date(Math.max(monthTracker.getTime(), startDate.getTime()));
+        const nextMonth = new Date(monthTracker.getFullYear(), monthTracker.getMonth() + 1, 1);
+        const monthEnd = new Date(Math.min(nextMonth.getTime(), endDate.getTime() + 86400000));
+        const weeksInMonth = Math.round((monthEnd - monthStart) / (7 * 86400000));
+        if (weeksInMonth > 0) {
+          months.push({ label: monthStart.toLocaleString('en-GB', { month: 'long' }), weeks: weeksInMonth });
+        }
+        monthTracker = nextMonth;
+      }
+
+      let html = '<div class="heatmap-months">';
+      months.forEach(m => {
+        html += `<span style="flex:${m.weeks}">${m.label}</span>`;
+      });
+      html += '</div>';
+
+      // Day labels
+      html += '<div class="heatmap-body"><div class="heatmap-days">';
+      ['', 'Mon', '', 'Wed', '', 'Fri', ''].forEach(d => {
+        html += `<div class="heatmap-day-label">${d}</div>`;
+      });
+      html += '</div><div class="heatmap-grid">';
+
+      let currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        html += '<div class="heatmap-week">';
+        for (let d = 0; d < 7; d++) {
+          const dateStr = currentDate.toISOString().split('T')[0];
+          const inRange = currentDate >= new Date('2026-03-01') && currentDate <= endDate;
+          const dist = dateMap[dateStr] || 0;
+          let level = 0;
+          if (dist > 0) {
+            const ratio = dist / (maxDist || 1);
+            if (ratio <= 0.25) level = 1;
+            else if (ratio <= 0.5) level = 2;
+            else if (ratio <= 0.75) level = 3;
+            else level = 4;
+          }
+          const title = inRange ? `${dateStr}: ${dist ? App.formatDistance(dist) : 'No activity'}` : '';
+          const cls = inRange ? `heatmap-day level-${level}` : 'heatmap-day heatmap-day-empty';
+          html += `<div class="${cls}" title="${title}"></div>`;
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        html += '</div>';
+      }
+
+      html += '</div></div>';
+      heatmap.innerHTML = html;
+    }
+
+    init();
+  </script>
+</body>
+</html>

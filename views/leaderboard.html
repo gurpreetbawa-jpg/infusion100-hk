@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Map - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links" id="navLinks"></ul>
+  </nav>
+
+  <div id="liveMap" class="map-container-full"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    const map = L.map('liveMap').setView([51.49, -0.12], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const markers = {};
+    let bridgeMarkers = [];
+
+    async function init() {
+      // Update nav
+      const user = await App.loadUser();
+      // Load bridges
+      const bridges = await App.fetchJSON('/api/bridges');
+      bridges.forEach(b => {
+        const m = L.circleMarker([b.lat, b.lng], {
+          radius: 7, fillColor: '#1A1F36', color: '#fff', weight: 2, fillOpacity: 0.8
+        }).addTo(map);
+        m.bindPopup(`<strong>${b.name}</strong>`);
+        bridgeMarkers.push(m);
+      });
+
+      // Fit to London bridges route
+      if (bridges.length) {
+        const coords = bridges.map(b => [b.lat, b.lng]);
+        L.polyline(coords, { color: '#1A1F36', weight: 2, opacity: 0.3, dashArray: '6,6' }).addTo(map);
+        map.fitBounds(coords, { padding: [50, 50] });
+      }
+
+      refreshLocations();
+      setInterval(refreshLocations, 30000);
+    }
+
+    async function refreshLocations() {
+      try {
+        const participants = await App.fetchJSON('/api/locations/live');
+
+        // Clear old markers not in new data
+        const activeIds = new Set(participants.map(p => p.id));
+        Object.keys(markers).forEach(id => {
+          if (!activeIds.has(parseInt(id))) {
+            map.removeLayer(markers[id]);
+            delete markers[id];
+          }
+        });
+
+        participants.forEach(p => {
+          const isActive = p.tracking_status === 'active';
+          const color = isActive ? '#10B981' : '#6B7280';
+          const firstName = (p.full_name || 'Unknown').split(' ')[0];
+
+          if (markers[p.id]) {
+            markers[p.id].setLatLng([p.lat, p.lng]);
+            markers[p.id].setStyle({ fillColor: color, color: color });
+          } else {
+            const marker = L.circleMarker([p.lat, p.lng], {
+              radius: 10, fillColor: color, color: color, weight: 2, fillOpacity: 0.9
+            }).addTo(map);
+
+            marker.bindPopup(`
+              <div style="text-align:center">
+                <strong>${App.escapeHtml(p.full_name || 'Unknown')}</strong><br>
+                <span style="color:${color}">${isActive ? 'Walking' : 'Finished'}</span><br>
+                <small>Last update: ${App.formatRelative(p.recorded_at)}</small>
+              </div>
+            `);
+
+            // Name label
+            marker.bindTooltip(firstName, {
+              permanent: true, direction: 'top', offset: [0, -10],
+              className: 'participant-label'
+            });
+
+            markers[p.id] = marker;
+          }
+        });
+      } catch {}
+    }
+
+    init();
+  </script>
+  <style>
+    .participant-label {
+      background: var(--primary) !important;
+      color: white !important;
+      border: none !important;
+      border-radius: 4px !important;
+      padding: 2px 6px !important;
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+    }
+    .participant-label::before { display: none !important; }
+  </style>
+</body>
+</html>

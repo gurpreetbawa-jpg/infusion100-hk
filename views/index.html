@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infusion100 - London Bridges Charity Walk</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links" id="navLinks"></ul>
+  </nav>
+
+  <section class="hero">
+    <h1>Walk the <span class="accent">London Bridges</span></h1>
+    <p>Join the Infusion 100 charity walk across the bridges of London. Saturday, 16th May 2026.</p>
+    <a href="/register" class="btn btn-primary btn-lg">Sign Up &amp; Walk</a>
+    <div class="hero-stats">
+      <div>
+        <div class="hero-stat-value" id="bridgeCount">26</div>
+        <div class="hero-stat-label">London Bridges</div>
+      </div>
+      <div>
+        <div class="hero-stat-value" id="participantCount">--</div>
+        <div class="hero-stat-label">Walkers Signed Up</div>
+      </div>
+      <div>
+        <div class="hero-stat-value">16 May</div>
+        <div class="hero-stat-label">Event Day</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="container container-md">
+    <div class="card mt-3">
+      <h2>How It Works</h2>
+      <div class="stats-grid mt-2">
+        <div class="stat-card">
+          <div class="stat-value" style="font-size:2.5rem">1</div>
+          <div class="stat-label">Sign up &amp; pick your start and end bridges</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="font-size:2.5rem">2</div>
+          <div class="stat-label">Train with practice walks, log them here</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="font-size:2.5rem">3</div>
+          <div class="stat-label">Walk on event day &amp; track live</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>About Infusion 100</h2>
+      <p class="mt-1">Infusion 100 is a charity event bringing people together for a sponsored walk across the bridges of London. Choose your own start and end bridges, and walk any portion of the route that works for you.</p>
+      <p class="mt-1">All funds raised go to the Infusion 100 charity. Set up your JustGiving page and share it with friends and family!</p>
+    </div>
+
+    <div class="card">
+      <h2>The Route</h2>
+      <p class="mt-1 mb-2">From Hampton Court Bridge in the west to Tower Bridge, finishing at Canary Wharf — 26 bridges spanning London.</p>
+      <div id="routeMap" class="map-container" style="height:350px"></div>
+    </div>
+  </div>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    (async () => {
+      // Update nav if logged in
+      const user = await App.loadUser();
+      // Route map
+      const map = L.map('routeMap').setView([51.48, -0.12], 11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      const bridges = await App.fetchJSON('/api/bridges');
+      const coords = [];
+      bridges.forEach(b => {
+        const marker = L.circleMarker([b.lat, b.lng], {
+          radius: 6, fillColor: '#FC4C02', color: '#fff', weight: 2, fillOpacity: 0.9
+        }).addTo(map);
+        marker.bindPopup(`<strong>${b.name}</strong>`);
+        coords.push([b.lat, b.lng]);
+      });
+
+      if (coords.length) {
+        L.polyline(coords, { color: '#1A1F36', weight: 3, opacity: 0.5, dashArray: '8,8' }).addTo(map);
+        map.fitBounds(coords, { padding: [30, 30] });
+      }
+
+      const { count } = await App.fetchJSON('/api/participant-count');
+      document.getElementById('participantCount').textContent = count;
+    })();
+  </script>
+</body>
+</html>

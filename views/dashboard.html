@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links" id="navLinks"></ul>
+  </nav>
+
+  <div class="container">
+    <div id="alertBox"></div>
+
+    <div class="page-header">
+      <h1 id="greeting">Dashboard</h1>
+      <div class="flex gap-1">
+        <a href="/walk/log" class="btn btn-primary">Log a Walk</a>
+        <a href="/event" class="btn btn-secondary">Event Day</a>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card">
+        <div class="stat-value" id="totalDistance">--</div>
+        <div class="stat-label">Total Distance</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="totalWalks">--</div>
+        <div class="stat-label">Walks Logged</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="longestWalk">--</div>
+        <div class="stat-label">Longest Walk</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="daysUntil">--</div>
+        <div class="stat-label">Days Until Event</div>
+      </div>
+    </div>
+
+    <!-- Profile Card -->
+    <div class="card">
+      <div class="flex-between">
+        <h2>Your Details</h2>
+        <button class="btn btn-outline btn-sm" onclick="toggleEdit()">Edit</button>
+      </div>
+      <div id="profileView" class="mt-1">
+        <table style="font-size:0.9375rem">
+          <tbody id="profileTable"></tbody>
+        </table>
+      </div>
+      <form id="profileEdit" class="hidden mt-1">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="edit_name" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" id="edit_phone" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Emergency Contact</label>
+          <input type="text" id="edit_ec_name" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Emergency Phone</label>
+          <input type="tel" id="edit_ec_phone" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>JustGiving URL</label>
+          <input type="url" id="edit_jg" class="form-control">
+        </div>
+        <div class="flex gap-1">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-outline" onclick="toggleEdit()">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Strava -->
+    <div class="card">
+      <div class="flex-between">
+        <h2>Strava Integration</h2>
+        <span id="stravaStatus"></span>
+      </div>
+      <div id="stravaActions" class="mt-1"></div>
+    </div>
+
+    <!-- Recent Walks -->
+    <div class="card">
+      <div class="flex-between">
+        <h2>Recent Walks</h2>
+        <a href="/stats" class="btn btn-outline btn-sm">View All</a>
+      </div>
+      <div id="recentWalks" class="mt-1">
+        <div class="loading-overlay"><span class="spinner"></span> Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let user;
+
+    async function init() {
+      user = await App.loadUser();
+      if (!user) return window.location.href = '/login';
+
+      document.getElementById('greeting').textContent = `Hi, ${user.full_name?.split(' ')[0] || 'there'}!`;
+
+      // Days until event
+      const eventDate = new Date('2026-05-16');
+      const days = Math.max(0, Math.ceil((eventDate - Date.now()) / 86400000));
+      document.getElementById('daysUntil').textContent = days;
+
+      // Stats
+      try {
+        const stats = await App.fetchJSON('/api/stats');
+        document.getElementById('totalDistance').textContent = App.formatDistance(stats.total_distance);
+        document.getElementById('totalWalks').textContent = stats.total_walks;
+        document.getElementById('longestWalk').textContent = App.formatDistance(stats.longest_walk);
+      } catch {}
+
+      // Profile
+      renderProfile();
+
+      // Strava
+      renderStrava();
+
+      // Recent walks
+      loadRecentWalks();
+
+      // Check URL params
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('strava') === 'connected') {
+        App.showAlert(document.getElementById('alertBox'), 'Strava connected successfully!', 'success');
+      }
+
+      // Profile edit form
+      document.getElementById('profileEdit').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          user = await App.fetchJSON('/api/me', {
+            method: 'PUT',
+            body: JSON.stringify({
+              full_name: document.getElementById('edit_name').value,
+              phone: document.getElementById('edit_phone').value,
+              emergency_contact_name: document.getElementById('edit_ec_name').value,
+              emergency_contact_phone: document.getElementById('edit_ec_phone').value,
+              justgiving_url: document.getElementById('edit_jg').value,
+              gdpr_consent: user.gdpr_consent,
+            }),
+          });
+          renderProfile();
+          toggleEdit();
+          App.showAlert(document.getElementById('alertBox'), 'Profile updated!', 'success');
+        } catch (err) {
+          App.showAlert(document.getElementById('alertBox'), err.message, 'danger');
+        }
+      });
+    }
+
+    function renderProfile() {
+      const rows = [
+        ['Name', user.full_name],
+        ['Email', user.email],
+        ['Phone', user.phone],
+        ['Emergency Contact', `${user.emergency_contact_name} (${user.emergency_contact_phone})`],
+        ['JustGiving', user.justgiving_url ? `<a href="${App.escapeHtml(user.justgiving_url)}" target="_blank">View Page</a>` : 'Not set'],
+      ];
+      document.getElementById('profileTable').innerHTML = rows
+        .map(([k, v]) => `<tr><td style="font-weight:600;width:160px;color:var(--text-muted)">${k}</td><td>${v || '--'}</td></tr>`)
+        .join('');
+    }
+
+    function toggleEdit() {
+      const view = document.getElementById('profileView');
+      const edit = document.getElementById('profileEdit');
+      const hidden = edit.classList.contains('hidden');
+      view.classList.toggle('hidden');
+      edit.classList.toggle('hidden');
+      if (hidden) {
+        document.getElementById('edit_name').value = user.full_name || '';
+        document.getElementById('edit_phone').value = user.phone || '';
+        document.getElementById('edit_ec_name').value = user.emergency_contact_name || '';
+        document.getElementById('edit_ec_phone').value = user.emergency_contact_phone || '';
+        document.getElementById('edit_jg').value = user.justgiving_url || '';
+      }
+    }
+
+    function renderStrava() {
+      const status = document.getElementById('stravaStatus');
+      const actions = document.getElementById('stravaActions');
+      if (user.strava_connected) {
+        status.innerHTML = '<span class="badge badge-strava">Connected</span>';
+        actions.innerHTML = `
+          <div class="mb-1" style="font-size:0.875rem">
+            <strong>Activity types to sync:</strong>
+            <div class="flex gap-1 mt-1" style="flex-wrap:wrap">
+              <label><input type="checkbox" class="strava-type" value="Walk" checked> Walk</label>
+              <label><input type="checkbox" class="strava-type" value="Hike" checked> Hike</label>
+              <label><input type="checkbox" class="strava-type" value="Run"> Run</label>
+              <label><input type="checkbox" class="strava-type" value="Ride"> Ride</label>
+              <label><input type="checkbox" class="strava-type" value="Swim"> Swim</label>
+              <label><input type="checkbox" class="strava-type" value="Workout"> Workout</label>
+            </div>
+          </div>
+          <div class="flex gap-1">
+            <button class="btn btn-primary btn-sm" onclick="syncStrava()">Sync from Strava</button>
+            <button class="btn btn-outline btn-sm" onclick="unlinkStrava()">Unlink</button>
+          </div>
+        `;
+      } else {
+        status.innerHTML = '<span class="badge badge-warning">Not connected</span>';
+        actions.innerHTML = `
+          <p class="text-muted mb-1" style="font-size:0.875rem">Connect Strava to automatically import your activities.</p>
+          <a href="/auth/strava" class="btn btn-primary btn-sm">Connect Strava</a>
+        `;
+      }
+    }
+
+    async function syncStrava() {
+      const checked = [...document.querySelectorAll('.strava-type:checked')].map(c => c.value);
+      if (checked.length === 0) {
+        App.showAlert(document.getElementById('alertBox'), 'Select at least one activity type', 'danger');
+        return;
+      }
+      try {
+        const result = await App.fetchJSON(`/api/strava/sync?types=${checked.join(',')}`);
+        App.showAlert(document.getElementById('alertBox'), result.message, 'success');
+        loadRecentWalks();
+      } catch (err) {
+        App.showAlert(document.getElementById('alertBox'), 'Strava sync failed: ' + err.message, 'danger');
+      }
+    }
+
+    async function unlinkStrava() {
+      if (!confirm('Unlink your Strava account?')) return;
+      await App.fetchJSON('/api/strava/unlink', { method: 'DELETE' });
+      user.strava_connected = false;
+      renderStrava();
+      App.showAlert(document.getElementById('alertBox'), 'Strava unlinked', 'info');
+    }
+
+    async function deleteWalk(id, e) {
+      e.preventDefault();
+      if (!confirm('Delete this activity?')) return;
+      try {
+        await App.fetchJSON(`/api/walks/${id}`, { method: 'DELETE' });
+        App.showAlert(document.getElementById('alertBox'), 'Activity deleted', 'success');
+        loadRecentWalks();
+        const stats = await App.fetchJSON('/api/stats');
+        document.getElementById('totalDistance').textContent = App.formatDistance(stats.total_distance);
+        document.getElementById('totalWalks').textContent = stats.total_walks;
+        document.getElementById('longestWalk').textContent = App.formatDistance(stats.longest_walk);
+      } catch (err) {
+        App.showAlert(document.getElementById('alertBox'), 'Delete failed: ' + err.message, 'danger');
+      }
+    }
+
+    async function loadRecentWalks() {
+      try {
+        const data = await App.fetchJSON(`/api/walks?participant_id=${user.id}&limit=5`);
+        const container = document.getElementById('recentWalks');
+        if (data.walks.length === 0) {
+          container.innerHTML = '<p class="text-muted">No walks logged yet. <a href="/walk/log">Log your first walk!</a></p>';
+          return;
+        }
+        container.innerHTML = data.walks.map(w => `
+          <div class="walk-card" style="margin-bottom:0.5rem">
+            <div class="flex-between">
+              <a href="/walk/${w.id}" style="text-decoration:none;color:inherit;flex:1">
+                <div>
+                  <strong>${App.escapeHtml(w.caption || 'Walk')}</strong>
+                  ${w.strava_id ? `<span class="badge badge-strava" style="margin-left:0.5rem">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}
+                </div>
+                <div class="walk-card-stats" style="margin:0.375rem 0 0">
+                  <span>${App.formatDistance(w.distance_km)}</span>
+                  <span>${App.formatDuration(w.duration_mins)}</span>
+                </div>
+              </a>
+              <div style="display:flex;align-items:start;gap:0.5rem;margin-left:0.5rem">
+                <span class="text-muted" style="font-size:0.8125rem;white-space:nowrap">${App.formatDate(w.date)}</span>
+                <button class="btn btn-outline btn-sm" style="padding:0.2rem 0.5rem;font-size:0.75rem;color:var(--danger)" onclick="deleteWalk(${w.id}, event)">Delete</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch {
+        document.getElementById('recentWalks').innerHTML = '<p class="text-muted">Failed to load walks.</p>';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

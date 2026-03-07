@@ -1,0 +1,30 @@
+-- London Bridges seed data (West to East, finishing at Canary Wharf)
+DELETE FROM bridges;
+INSERT INTO bridges (name, lat, lng, order_index) VALUES
+  ('Hampton Court Bridge', 51.4020, -0.3428, 1),
+  ('Kingston Bridge', 51.4103, -0.3067, 2),
+  ('Twickenham Bridge', 51.4490, -0.3210, 3),
+  ('Richmond Lock', 51.4580, -0.3160, 4),
+  ('Richmond Railway Bridge', 51.4560, -0.3130, 5),
+  ('Kew Bridge', 51.4880, -0.2890, 6),
+  ('Chiswick Bridge', 51.4730, -0.2590, 7),
+  ('Barnes Railway Bridge', 51.4700, -0.2480, 8),
+  ('Hammersmith Bridge', 51.4880, -0.2290, 9),
+  ('Putney Bridge', 51.4680, -0.2090, 10),
+  ('Wandsworth Bridge', 51.4660, -0.1880, 11),
+  ('Battersea Bridge', 51.4810, -0.1710, 12),
+  ('Albert Bridge', 51.4780, -0.1650, 13),
+  ('Chelsea Bridge', 51.4850, -0.1560, 14),
+  ('Vauxhall Bridge', 51.4870, -0.1270, 15),
+  ('Lambeth Bridge', 51.4950, -0.1220, 16),
+  ('Westminster Bridge', 51.5010, -0.1220, 17),
+  ('Hungerford Bridge', 51.5070, -0.1170, 18),
+  ('Waterloo Bridge', 51.5080, -0.1170, 19),
+  ('Blackfriars Bridge', 51.5090, -0.1030, 20),
+  ('Millennium Bridge', 51.5095, -0.0985, 21),
+  ('Southwark Bridge', 51.5080, -0.0940, 22),
+  ('Cannon Street Railway Bridge', 51.5090, -0.0910, 23),
+  ('London Bridge', 51.5080, -0.0880, 24),
+  ('Tower Bridge', 51.5055, -0.0754, 25),
+  ('Canary Wharf', 51.5054, -0.0235, 26)
+ON CONFLICT DO NOTHING;

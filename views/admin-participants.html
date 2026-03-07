@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Participants - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links">
+      <li><a href="/admin">Admin</a></li>
+      <li><a href="/admin/participants" class="active">Participants</a></li>
+      <li><a href="/admin/map">Live Map</a></li>
+      <li><a href="/auth/logout">Log Out</a></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h1>Participants</h1>
+      <a href="/admin/api/participants/export" class="btn btn-secondary btn-sm">Export CSV</a>
+    </div>
+
+    <div id="alertBox"></div>
+
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Search by name or email..." oninput="debounceSearch()">
+      <button class="btn btn-primary" onclick="search()">Search</button>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Strava</th>
+              <th>Registered</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="participantsBody">
+            <tr><td colspan="8" class="text-center text-muted" style="padding:2rem">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="modal-backdrop" id="editModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Edit Participant</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <form id="editForm">
+        <input type="hidden" id="editId">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="editName" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" id="editPhone" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Emergency Contact</label>
+          <input type="text" id="editEcName" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Emergency Phone</label>
+          <input type="tel" id="editEcPhone" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>JustGiving URL</label>
+          <input type="url" id="editJg" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Start Bridge</label>
+          <input type="text" id="editStart" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>End Bridge</label>
+          <input type="text" id="editEnd" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select id="editRole" class="form-control">
+            <option value="participant">Participant</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="flex gap-1">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+          <button type="button" class="btn btn-danger" style="margin-left:auto" onclick="deleteParticipant()">Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let currentPage = 1;
+    let searchTimeout;
+
+    async function loadParticipants(page = 1) {
+      currentPage = page;
+      const searchVal = document.getElementById('searchInput').value;
+      let url = `/admin/api/participants?page=${page}&limit=25`;
+      if (searchVal) url += `&search=${encodeURIComponent(searchVal)}`;
+
+      const data = await App.fetchJSON(url);
+      const body = document.getElementById('participantsBody');
+
+      if (data.participants.length === 0) {
+        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:2rem">No participants found.</td></tr>';
+        document.getElementById('pagination').innerHTML = '';
+        return;
+      }
+
+      body.innerHTML = data.participants.map(p => `
+        <tr style="cursor:pointer" onclick='openEdit(${JSON.stringify(p).replace(/'/g, "&#39;")})'>
+          <td><strong>${App.escapeHtml(p.full_name || '--')}</strong></td>
+          <td>${App.escapeHtml(p.email)}</td>
+          <td>${App.escapeHtml(p.phone || '--')}</td>
+          <td>${App.escapeHtml(p.start_bridge || '--')}</td>
+          <td>${App.escapeHtml(p.end_bridge || '--')}</td>
+          <td>${p.strava_connected ? '<span class="badge badge-strava">Yes</span>' : 'No'}</td>
+          <td>${App.formatDate(p.registered_at)}</td>
+          <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openEdit(${JSON.stringify(p).replace(/'/g, '&#39;')})">Edit</button></td>
+        </tr>
+      `).join('');
+
+      // Pagination
+      const pag = document.getElementById('pagination');
+      if (data.pages <= 1) { pag.innerHTML = ''; return; }
+
+      let html = '';
+      if (currentPage > 1) html += `<button class="btn btn-outline btn-sm" onclick="loadParticipants(${currentPage - 1})">Prev</button>`;
+      html += `<span class="text-muted" style="font-size:0.875rem">Page ${currentPage} of ${data.pages} (${data.total} total)</span>`;
+      if (currentPage < data.pages) html += `<button class="btn btn-outline btn-sm" onclick="loadParticipants(${currentPage + 1})">Next</button>`;
+      pag.innerHTML = html;
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => loadParticipants(1), 300);
+    }
+
+    function search() { loadParticipants(1); }
+
+    function openEdit(p) {
+      document.getElementById('editId').value = p.id;
+      document.getElementById('editName').value = p.full_name || '';
+      document.getElementById('editPhone').value = p.phone || '';
+      document.getElementById('editEcName').value = p.emergency_contact_name || '';
+      document.getElementById('editEcPhone').value = p.emergency_contact_phone || '';
+      document.getElementById('editJg').value = p.justgiving_url || '';
+      document.getElementById('editStart').value = p.start_bridge || '';
+      document.getElementById('editEnd').value = p.end_bridge || '';
+      document.getElementById('editRole').value = p.role || 'participant';
+      document.getElementById('editModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('editModal').classList.remove('active');
+    }
+
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editId').value;
+      try {
+        await App.fetchJSON(`/admin/api/participants/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            full_name: document.getElementById('editName').value,
+            phone: document.getElementById('editPhone').value,
+            emergency_contact_name: document.getElementById('editEcName').value,
+            emergency_contact_phone: document.getElementById('editEcPhone').value,
+            justgiving_url: document.getElementById('editJg').value,
+            start_bridge: document.getElementById('editStart').value,
+            end_bridge: document.getElementById('editEnd').value,
+            role: document.getElementById('editRole').value,
+          }),
+        });
+        closeModal();
+        loadParticipants(currentPage);
+        App.showAlert(document.getElementById('alertBox'), 'Participant updated.', 'success');
+      } catch (err) {
+        App.showAlert(document.getElementById('alertBox'), err.message, 'danger');
+      }
+    });
+
+    async function deleteParticipant() {
+      const id = document.getElementById('editId').value;
+      if (!confirm('Are you sure? This will permanently delete this participant and all their data (GDPR deletion).')) return;
+      try {
+        await App.fetchJSON(`/admin/api/participants/${id}`, { method: 'DELETE' });
+        closeModal();
+        loadParticipants(currentPage);
+        App.showAlert(document.getElementById('alertBox'), 'Participant deleted.', 'success');
+      } catch (err) {
+        App.showAlert(document.getElementById('alertBox'), err.message, 'danger');
+      }
+    }
+
+    loadParticipants();
+  </script>
+</body>
+</html>

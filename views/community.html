@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Community - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links" id="navLinks"></ul>
+  </nav>
+
+  <div class="container container-md">
+    <div class="page-header">
+      <h1>Community Feed</h1>
+      <a href="/walk/log" class="btn btn-primary btn-sm" id="logWalkBtn" style="display:none">Log a Walk</a>
+    </div>
+
+    <div id="feed">
+      <div class="loading-overlay"><span class="spinner"></span> Loading...</div>
+    </div>
+
+    <div id="loadMore" class="text-center mt-2 hidden">
+      <button class="btn btn-outline" onclick="loadWalks()">Load More</button>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let nextCursor = null;
+    let currentUser = null;
+
+    async function init() {
+      currentUser = await App.loadUser();
+      if (currentUser) {
+        document.getElementById('logWalkBtn').style.display = '';
+      }
+      loadWalks();
+    }
+
+    async function loadWalks() {
+      try {
+        let url = '/api/walks?limit=15';
+        if (nextCursor) url += `&cursor=${nextCursor}`;
+
+        const data = await App.fetchJSON(url);
+        const feed = document.getElementById('feed');
+
+        if (!nextCursor && data.walks.length === 0) {
+          feed.innerHTML = '<p class="text-muted text-center mt-3">No walks yet. Be the first to log one!</p>';
+          return;
+        }
+
+        if (!nextCursor) feed.innerHTML = '';
+
+        data.walks.forEach(w => {
+          feed.innerHTML += `
+            <div class="walk-card">
+              <div class="walk-card-header">
+                ${App.renderAvatar(w)}
+                <div class="walk-card-meta">
+                  <div class="walk-card-name">${App.escapeHtml(w.full_name)}</div>
+                  <div class="walk-card-date">${App.formatRelative(w.created_at)}</div>
+                </div>
+                ${w.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}
+              </div>
+
+              ${w.caption ? `<p class="walk-card-caption">${App.escapeHtml(w.caption)}</p>` : ''}
+
+              <div class="walk-card-stats">
+                <span><strong>${App.formatDistance(w.distance_km)}</strong></span>
+                <span>${App.formatDuration(w.duration_mins)}</span>
+                <span>${App.formatDate(w.date)}</span>
+              </div>
+
+              <div class="walk-card-actions">
+                <button onclick="toggleLike(${w.id}, this)" class="${w.user_liked ? 'liked' : ''}">
+                  ${w.user_liked ? '&#10084;' : '&#9825;'} <span>${w.like_count}</span>
+                </button>
+                <a href="/walk/${w.id}" style="color:var(--text-muted);font-size:0.875rem">
+                  ${w.comment_count} comment(s)
+                </a>
+              </div>
+            </div>
+          `;
+        });
+
+        nextCursor = data.nextCursor;
+        document.getElementById('loadMore').classList.toggle('hidden', !nextCursor);
+      } catch (err) {
+        document.getElementById('feed').innerHTML = '<div class="alert alert-danger">Failed to load feed.</div>';
+      }
+    }
+
+    async function toggleLike(walkId, btn) {
+      if (!currentUser) return window.location.href = '/login';
+      try {
+        const result = await App.fetchJSON(`/api/walks/${walkId}/like`, { method: 'POST' });
+        btn.className = result.liked ? 'liked' : '';
+        btn.innerHTML = `${result.liked ? '&#10084;' : '&#9825;'} <span>${result.count}</span>`;
+      } catch {}
+    }
+
+    init();
+  </script>
+</body>
+</html>
