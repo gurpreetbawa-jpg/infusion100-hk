@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { pool } = require('./db');
 const passport = require('./config/passport');
+const webpush = require('web-push');
 
 // Fail fast if critical secrets are missing
 if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 16) {
@@ -21,6 +22,16 @@ if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY.length < 16) {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Web Push
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || 'mailto:noreply@example.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+  app.locals.webpush = webpush;
+}
 
 // Trust Render's reverse proxy for secure cookies
 if (process.env.NODE_ENV === 'production') {

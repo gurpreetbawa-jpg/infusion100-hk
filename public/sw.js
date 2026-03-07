@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `infusion100-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `infusion100-dynamic-${CACHE_VERSION}`;
 
@@ -30,6 +30,23 @@ self.addEventListener('activate', (event) => {
     )
   );
   self.clients.claim();
+});
+
+// Push notifications
+self.addEventListener('push', (event) => {
+  const data = event.data?.json() || { title: 'Infusion100', body: '' };
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow('/dashboard'));
 });
 
 // Fetch — cache-first for static, network-first for everything else

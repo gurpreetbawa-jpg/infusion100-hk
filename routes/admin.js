@@ -111,4 +111,60 @@ router.delete('/api/participants/:id', async (req, res) => {
   }
 });
 
+// --- Push Notifications ---
+router.get('/api/notifications/subscribers', async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT COUNT(DISTINCT participant_id) FROM push_subscriptions'
+    );
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to count subscribers' });
+  }
+});
+
+router.post('/api/notifications/send', async (req, res) => {
+  try {
+    const webpush = req.app.locals.webpush;
+    if (!webpush) return res.status(500).json({ error: 'Push not configured' });
+
+    const { title, body, participant_id } = req.body;
+    if (!title || !body) return res.status(400).json({ error: 'Title and body required' });
+
+    let query = 'SELECT * FROM push_subscriptions';
+    const params = [];
+    if (participant_id) {
+      query += ' WHERE participant_id = $1';
+      params.push(participant_id);
+    }
+
+    const subs = await db.query(query, params);
+    const payload = JSON.stringify({ title, body });
+
+    let sent = 0;
+    let failed = 0;
+    for (const sub of subs.rows) {
+      const pushSub = {
+        endpoint: sub.endpoint,
+        keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth },
+      };
+      try {
+        await webpush.sendNotification(pushSub, payload);
+        sent++;
+      } catch (err) {
+        failed++;
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await db.query('DELETE FROM push_subscriptions WHERE id = $1', [sub.id]);
+        }
+      }
+    }
+
+    console.log(`[PUSH] Sent ${sent}, failed ${failed} (target: ${participant_id || 'broadcast'})`);
+    res.json({ sent, failed });
+  } catch (err) {
+    console.error('Send notification error:', err);
+    res.status(500).json({ error: 'Failed to send notifications' });
+  }
+});
+
 module.exports = router;

@@ -82,6 +82,15 @@ CREATE TABLE IF NOT EXISTS bridges (
   order_index   INT
 );
 
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id SERIAL PRIMARY KEY,
+  participant_id INTEGER REFERENCES participants(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  keys_p256dh TEXT NOT NULL,
+  keys_auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Session store table for connect-pg-simple
 CREATE TABLE IF NOT EXISTS "session" (
   "sid" VARCHAR NOT NULL COLLATE "default" PRIMARY KEY,

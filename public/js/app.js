@@ -86,6 +86,70 @@ const App = {
   },
 };
 
+// Push notification subscription
+App.initPush = async function () {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  try {
+    const { publicKey } = await this.fetchJSON('/api/push/vapid-key');
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      // Hide banner if denied — no point showing it again
+      if (permission === 'denied') App.updatePushUI(true);
+      return;
+    }
+
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+
+    await this.fetchJSON('/api/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(sub.toJSON()),
+    });
+
+    App.updatePushUI(true);
+    const alertBox = document.getElementById('alertBox');
+    if (alertBox) App.showAlert(alertBox, 'Push notifications enabled!', 'success');
+  } catch (err) {
+    console.error('Push subscription failed:', err);
+  }
+};
+
+App.disablePush = async function () {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await this.fetchJSON('/api/push/unsubscribe', {
+        method: 'DELETE',
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
+      await sub.unsubscribe();
+    }
+    App.updatePushUI(false);
+  } catch (err) {
+    console.error('Push unsubscribe failed:', err);
+  }
+};
+
+App.updatePushUI = function (subscribed) {
+  const banner = document.getElementById('pushBanner');
+  if (!banner) return;
+  banner.style.display = subscribed ? 'none' : '';
+};
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
 // Dynamic nav — builds links based on auth state
 App.buildNav = function () {
   const nav = document.getElementById('navLinks');

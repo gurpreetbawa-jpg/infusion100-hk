@@ -21,6 +21,18 @@
   <div class="container">
     <div id="alertBox"></div>
 
+    <!-- Push notification opt-in banner -->
+    <div id="pushBanner" style="display:none; background:var(--primary); color:#fff; border-radius:0.75rem; padding:1rem 1.25rem; margin-bottom:1.5rem; cursor:pointer" onclick="App.initPush()">
+      <div style="display:flex; align-items:center; gap:0.75rem">
+        <span style="font-size:1.5rem">&#128276;</span>
+        <div style="flex:1">
+          <strong>Enable Push Notifications</strong>
+          <div style="font-size:0.85rem; opacity:0.9">Get updates and messages from the Infusion100 team</div>
+        </div>
+        <span style="font-size:1.25rem">&#8250;</span>
+      </div>
+    </div>
+
     <div class="page-header">
       <h1 id="greeting">Dashboard</h1>
       <div class="flex gap-1">
@@ -135,6 +147,22 @@
       if (user.strava_eligible) {
         document.getElementById('stravaCard').classList.remove('hidden');
         renderStrava();
+      }
+
+      // Push notifications — only show banner if permission not yet decided and no active subscription
+      // On iOS, push is only supported when installed to home screen (standalone mode)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const canShowPush = 'PushManager' in window && (!isIOS || window.navigator.standalone === true);
+      if (canShowPush) {
+        try {
+          if (Notification.permission === 'default') {
+            const reg = await navigator.serviceWorker.ready;
+            const sub = await reg.pushManager.getSubscription();
+            if (!sub) {
+              document.getElementById('pushBanner').style.display = '';
+            }
+          }
+        } catch {}
       }
 
       // Recent walks

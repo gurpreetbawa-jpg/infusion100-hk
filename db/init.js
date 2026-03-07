@@ -29,6 +29,7 @@ async function run() {
       DROP TABLE IF EXISTS location_pings CASCADE;
       DROP TABLE IF EXISTS tracking_sessions CASCADE;
       DROP TABLE IF EXISTS bridges CASCADE;
+      DROP TABLE IF EXISTS push_subscriptions CASCADE;
       DROP TABLE IF EXISTS "session" CASCADE;
       DROP TABLE IF EXISTS participants CASCADE;
     `);
@@ -45,6 +46,14 @@ async function run() {
     `ALTER TABLE participants ADD COLUMN IF NOT EXISTS strava_sync_types VARCHAR(255) DEFAULT 'Walk,Hike,Run'`,
     `UPDATE participants SET strava_sync_types = 'Walk,Hike,Run' WHERE strava_sync_types = 'Walk,Hike'`,
     `ALTER TABLE walks ADD COLUMN IF NOT EXISTS activity_type VARCHAR(30)`,
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id SERIAL PRIMARY KEY,
+      participant_id INTEGER REFERENCES participants(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      keys_p256dh TEXT NOT NULL,
+      keys_auth TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
   ];
   for (const sql of migrations) {
     await pool.query(sql).catch(() => {});

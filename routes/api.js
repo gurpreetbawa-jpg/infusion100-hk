@@ -474,6 +474,62 @@ router.delete('/strava/unlink', isAuthenticated, async (req, res) => {
   }
 });
 
+// --- Push Notifications ---
+router.get('/push/vapid-key', (req, res) => {
+  const key = process.env.VAPID_PUBLIC_KEY;
+  if (!key) return res.status(404).json({ error: 'Push not configured' });
+  res.json({ publicKey: key });
+});
+
+router.post('/push/subscribe', isAuthenticated, async (req, res) => {
+  try {
+    const { endpoint, keys } = req.body;
+    if (!endpoint || !keys?.p256dh || !keys?.auth) {
+      return res.status(400).json({ error: 'Invalid subscription' });
+    }
+    await db.query(
+      `INSERT INTO push_subscriptions (participant_id, endpoint, keys_p256dh, keys_auth)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (endpoint) DO UPDATE SET
+         participant_id = EXCLUDED.participant_id,
+         keys_p256dh = EXCLUDED.keys_p256dh,
+         keys_auth = EXCLUDED.keys_auth`,
+      [req.user.id, endpoint, keys.p256dh, keys.auth]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Push subscribe error:', err);
+    res.status(500).json({ error: 'Failed to save subscription' });
+  }
+});
+
+router.delete('/push/unsubscribe', isAuthenticated, async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (!endpoint) return res.status(400).json({ error: 'Endpoint required' });
+    await db.query(
+      'DELETE FROM push_subscriptions WHERE endpoint = $1 AND participant_id = $2',
+      [endpoint, req.user.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Push unsubscribe error:', err);
+    res.status(500).json({ error: 'Failed to remove subscription' });
+  }
+});
+
+router.get('/push/status', isAuthenticated, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT COUNT(*) FROM push_subscriptions WHERE participant_id = $1',
+      [req.user.id]
+    );
+    res.json({ subscribed: parseInt(result.rows[0].count) > 0 });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to check subscription status' });
+  }
+});
+
 // --- Stats ---
 router.get('/stats', isAuthenticated, async (req, res) => {
   try {
