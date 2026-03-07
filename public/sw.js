@@ -57,7 +57,7 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin requests
   if (url.origin !== location.origin) return;
 
-  // Cache-first for static assets
+  // Stale-while-revalidate for static assets — serve cached instantly, fetch update in background
   if (
     request.destination === 'style' ||
     request.destination === 'script' ||
@@ -65,13 +65,15 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/icons/')
   ) {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        return cached || fetch(request).then((response) => {
-          const clone = response.clone();
-          caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
-          return response;
-        });
-      })
+      caches.open(STATIC_CACHE).then((cache) =>
+        cache.match(request).then((cached) => {
+          const fetchPromise = fetch(request).then((response) => {
+            cache.put(request, response.clone());
+            return response;
+          });
+          return cached || fetchPromise;
+        })
+      )
     );
     return;
   }
