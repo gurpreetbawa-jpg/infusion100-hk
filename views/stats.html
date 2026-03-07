@@ -69,17 +69,21 @@
         return;
       }
 
-      list.innerHTML = '<div class="table-container"><table><thead><tr><th>Date</th><th>Distance</th><th>Duration</th><th>Description</th><th></th></tr></thead><tbody>' +
-        data.walks.map(w => `
-          <tr>
-            <td>${App.formatDate(w.date)}</td>
-            <td>${App.formatDistance(w.distance_km)}</td>
-            <td>${App.formatDuration(w.duration_mins)}</td>
-            <td>${App.escapeHtml(w.caption || '--')} ${w.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}</td>
-            <td><a href="/walk/${w.id}" class="btn btn-outline btn-sm">View</a></td>
-          </tr>
-        `).join('') +
-        '</tbody></table></div>';
+      list.innerHTML = data.walks.map(w => `
+        <a href="/walk/${w.id}" class="walk-card" style="display:block;text-decoration:none;color:inherit;margin-bottom:0.5rem">
+          <div class="flex-between" style="align-items:start">
+            <div style="flex:1;min-width:0">
+              <strong>${App.escapeHtml(w.caption || 'Activity')}</strong>
+              ${w.strava_id ? `<span class="badge badge-strava" style="margin-left:0.5rem">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}
+              <div class="walk-card-stats" style="margin:0.375rem 0 0">
+                <span>${App.formatDistance(w.distance_km)}</span>
+                <span>${App.formatDuration(w.duration_mins)}</span>
+              </div>
+            </div>
+            <span class="text-muted" style="font-size:0.8125rem;white-space:nowrap;margin-left:0.5rem">${App.formatDate(w.date)}</span>
+          </div>
+        </a>
+      `).join('');
     }
 
     function renderHeatmap(calendar) {
