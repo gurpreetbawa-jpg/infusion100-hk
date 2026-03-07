@@ -202,6 +202,12 @@ a:hover { color: var(--accent-hover); }
   box-shadow: 0 0 0 3px rgba(252, 76, 2, 0.1);
 }
 
+input[type="date"].form-control {
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+}
+
 select.form-control { cursor: pointer; }
 textarea.form-control { resize: vertical; min-height: 80px; }
 
