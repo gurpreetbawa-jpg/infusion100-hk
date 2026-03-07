@@ -66,9 +66,9 @@ const App = {
   renderAvatar(user, size = '') {
     const cls = 'avatar' + (size ? ` avatar-${size}` : '');
     if (user.avatar_url) {
-      return `<img class="${cls}" src="${user.avatar_url}" alt="${user.full_name || ''}" />`;
+      return `<img class="${cls}" src="${App.escapeHtml(user.avatar_url)}" alt="${App.escapeHtml(user.full_name || '')}" />`;
     }
-    return `<div class="${cls}">${App.getInitials(user.full_name)}</div>`;
+    return `<div class="${cls}">${App.escapeHtml(App.getInitials(user.full_name))}</div>`;
   },
 
   showAlert(container, message, type = 'info') {

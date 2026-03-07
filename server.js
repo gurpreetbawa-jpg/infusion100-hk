@@ -9,6 +9,16 @@ const path = require('path');
 const { pool } = require('./db');
 const passport = require('./config/passport');
 
+// Fail fast if critical secrets are missing
+if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 16) {
+  console.error('FATAL: SESSION_SECRET is missing or too short. Set it in your environment.');
+  process.exit(1);
+}
+if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY.length < 16) {
+  console.error('FATAL: ENCRYPTION_KEY is missing or too short. Set it in your environment.');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -48,7 +58,7 @@ const locationLimiter = rateLimit({
 // Session
 app.use(session({
   store: new PgSession({ pool, tableName: 'session' }),
-  secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {

@@ -130,8 +130,9 @@
         return;
       }
 
-      body.innerHTML = data.participants.map(p => `
-        <tr style="cursor:pointer" onclick='openEdit(${JSON.stringify(p).replace(/'/g, "&#39;")})'>
+      const participants = data.participants;
+      body.innerHTML = participants.map((p, i) => `
+        <tr style="cursor:pointer" class="participant-row" data-idx="${i}">
           <td><strong>${App.escapeHtml(p.full_name || '--')}</strong></td>
           <td>${App.escapeHtml(p.email)}</td>
           <td>${App.escapeHtml(p.phone || '--')}</td>
@@ -139,9 +140,16 @@
           <td>${App.escapeHtml(p.end_bridge || '--')}</td>
           <td>${p.strava_connected ? '<span class="badge badge-strava">Yes</span>' : 'No'}</td>
           <td>${App.formatDate(p.registered_at)}</td>
-          <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openEdit(${JSON.stringify(p).replace(/'/g, '&#39;')})">Edit</button></td>
+          <td><button class="btn btn-outline btn-sm participant-edit-btn" data-idx="${i}">Edit</button></td>
         </tr>
       `).join('');
+
+      body.querySelectorAll('.participant-row').forEach(row => {
+        row.addEventListener('click', () => openEdit(participants[row.dataset.idx]));
+      });
+      body.querySelectorAll('.participant-edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); openEdit(participants[btn.dataset.idx]); });
+      });
 
       // Pagination
       const pag = document.getElementById('pagination');
