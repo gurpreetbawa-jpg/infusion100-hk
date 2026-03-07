@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS participants (
   phone         VARCHAR(50),
   emergency_contact_name  VARCHAR(255),
   emergency_contact_phone VARCHAR(50),
-  justgiving_url VARCHAR(500),
   start_bridge  VARCHAR(100),
   end_bridge    VARCHAR(100),
   avatar_url    TEXT,

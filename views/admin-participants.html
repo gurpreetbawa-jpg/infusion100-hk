@@ -82,10 +82,6 @@
           <input type="tel" id="editEcPhone" class="form-control">
         </div>
         <div class="form-group">
-          <label>JustGiving URL</label>
-          <input type="url" id="editJg" class="form-control">
-        </div>
-        <div class="form-group">
           <label>Start Bridge</label>
           <input type="text" id="editStart" class="form-control">
         </div>
@@ -166,7 +162,6 @@
       document.getElementById('editPhone').value = p.phone || '';
       document.getElementById('editEcName').value = p.emergency_contact_name || '';
       document.getElementById('editEcPhone').value = p.emergency_contact_phone || '';
-      document.getElementById('editJg').value = p.justgiving_url || '';
       document.getElementById('editStart').value = p.start_bridge || '';
       document.getElementById('editEnd').value = p.end_bridge || '';
       document.getElementById('editRole').value = p.role || 'participant';
@@ -188,7 +183,6 @@
             phone: document.getElementById('editPhone').value,
             emergency_contact_name: document.getElementById('editEcName').value,
             emergency_contact_phone: document.getElementById('editEcPhone').value,
-            justgiving_url: document.getElementById('editJg').value,
             start_bridge: document.getElementById('editStart').value,
             end_bridge: document.getElementById('editEnd').value,
             role: document.getElementById('editRole').value,

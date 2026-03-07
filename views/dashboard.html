@@ -72,10 +72,6 @@
           <label>Emergency Phone</label>
           <input type="tel" id="edit_ec_phone" class="form-control">
         </div>
-        <div class="form-group">
-          <label>JustGiving URL</label>
-          <input type="url" id="edit_jg" class="form-control">
-        </div>
         <div class="flex gap-1">
           <button type="submit" class="btn btn-primary">Save Changes</button>
           <button type="button" class="btn btn-outline" onclick="toggleEdit()">Cancel</button>
@@ -153,7 +149,6 @@
               phone: document.getElementById('edit_phone').value,
               emergency_contact_name: document.getElementById('edit_ec_name').value,
               emergency_contact_phone: document.getElementById('edit_ec_phone').value,
-              justgiving_url: document.getElementById('edit_jg').value,
               gdpr_consent: user.gdpr_consent,
             }),
           });
@@ -172,7 +167,6 @@
         ['Email', user.email],
         ['Phone', user.phone],
         ['Emergency Contact', `${user.emergency_contact_name} (${user.emergency_contact_phone})`],
-        ['JustGiving', user.justgiving_url ? `<a href="${App.escapeHtml(user.justgiving_url)}" target="_blank">View Page</a>` : 'Not set'],
       ];
       document.getElementById('profileTable').innerHTML = rows
         .map(([k, v]) => `<tr><td style="font-weight:600;width:160px;color:var(--text-muted)">${k}</td><td>${v || '--'}</td></tr>`)
@@ -190,7 +184,6 @@
         document.getElementById('edit_phone').value = user.phone || '';
         document.getElementById('edit_ec_name').value = user.emergency_contact_name || '';
         document.getElementById('edit_ec_phone').value = user.emergency_contact_phone || '';
-        document.getElementById('edit_jg').value = user.justgiving_url || '';
       }
     }
 

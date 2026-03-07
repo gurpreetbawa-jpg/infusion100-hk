@@ -53,13 +53,13 @@ router.get('/api/participants/export', async (req, res) => {
   try {
     const result = await db.query(
       `SELECT full_name, email, phone, emergency_contact_name, emergency_contact_phone,
-       justgiving_url, start_bridge, end_bridge, registered_at,
+       registered_at,
        CASE WHEN strava_token IS NOT NULL THEN 'Yes' ELSE 'No' END as strava_connected
        FROM participants ORDER BY registered_at DESC`
     );
 
     const headers = ['Full Name', 'Email', 'Phone', 'Emergency Contact', 'Emergency Phone',
-                     'JustGiving URL', 'Start Bridge', 'End Bridge', 'Registered', 'Strava'];
+                     'Registered', 'Strava'];
     const csvRows = [headers.join(',')];
 
     for (const row of result.rows) {
@@ -69,9 +69,6 @@ router.get('/api/participants/export', async (req, res) => {
         `"${row.phone || ''}"`,
         `"${(row.emergency_contact_name || '').replace(/"/g, '""')}"`,
         `"${row.emergency_contact_phone || ''}"`,
-        `"${row.justgiving_url || ''}"`,
-        `"${row.start_bridge || ''}"`,
-        `"${row.end_bridge || ''}"`,
         `"${row.registered_at}"`,
         row.strava_connected,
       ].join(','));
@@ -88,14 +85,14 @@ router.get('/api/participants/export', async (req, res) => {
 router.put('/api/participants/:id', async (req, res) => {
   try {
     const { full_name, phone, emergency_contact_name, emergency_contact_phone,
-            justgiving_url, start_bridge, end_bridge, role } = req.body;
+            start_bridge, end_bridge, role } = req.body;
 
     const result = await db.query(
       `UPDATE participants SET full_name = $1, phone = $2, emergency_contact_name = $3,
-       emergency_contact_phone = $4, justgiving_url = $5, start_bridge = $6, end_bridge = $7,
-       role = $8 WHERE id = $9 RETURNING *`,
+       emergency_contact_phone = $4, start_bridge = $5, end_bridge = $6,
+       role = $7 WHERE id = $8 RETURNING *`,
       [full_name, phone, emergency_contact_name, emergency_contact_phone,
-       justgiving_url, start_bridge, end_bridge, role, req.params.id]
+       start_bridge, end_bridge, role, req.params.id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Participant not found' });
