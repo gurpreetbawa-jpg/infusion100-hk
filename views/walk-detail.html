@@ -46,6 +46,35 @@
               ${walk.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(walk.activity_type || 'Strava')}</span>` : ''}
             </div>
 
+            ${user && user.id === walk.participant_id ? `
+              <div class="flex gap-1 mb-1" id="ownerActions">
+                <button class="btn btn-outline btn-sm" onclick="showEditForm()">Edit</button>
+                <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteWalk()">Delete</button>
+              </div>
+              <form id="editWalkForm" class="hidden mb-1">
+                <div class="form-group">
+                  <label>Date</label>
+                  <input type="date" id="editDate" class="form-control" value="${walk.date?.split('T')[0] || ''}" max="${new Date().toISOString().split('T')[0]}" required>
+                </div>
+                <div class="form-group">
+                  <label>Distance (km)</label>
+                  <input type="number" id="editDistance" class="form-control" step="0.1" min="0" value="${walk.distance_km}" required>
+                </div>
+                <div class="form-group">
+                  <label>Duration (minutes)</label>
+                  <input type="number" id="editDuration" class="form-control" min="0" value="${walk.duration_mins || ''}">
+                </div>
+                <div class="form-group">
+                  <label>Caption</label>
+                  <textarea id="editCaption" class="form-control" rows="2">${App.escapeHtml(walk.caption || '')}</textarea>
+                </div>
+                <div class="flex gap-1">
+                  <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                  <button type="button" class="btn btn-outline btn-sm" onclick="hideEditForm()">Cancel</button>
+                </div>
+              </form>
+            ` : ''}
+
             ${walk.caption ? `<p class="walk-card-caption">${App.escapeHtml(walk.caption)}</p>` : ''}
 
             <div class="walk-card-stats">
@@ -127,6 +156,45 @@
         document.getElementById('commentsList').innerHTML += renderComment(comment);
         input.value = '';
       } catch {}
+    }
+
+    function showEditForm() {
+      document.getElementById('editWalkForm').classList.remove('hidden');
+      document.getElementById('ownerActions').classList.add('hidden');
+      document.getElementById('editWalkForm').addEventListener('submit', saveEdit);
+    }
+
+    function hideEditForm() {
+      document.getElementById('editWalkForm').classList.add('hidden');
+      document.getElementById('ownerActions').classList.remove('hidden');
+    }
+
+    async function saveEdit(e) {
+      e.preventDefault();
+      try {
+        await App.fetchJSON(`/api/walks/${walkId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            date: document.getElementById('editDate').value,
+            distance_km: parseFloat(document.getElementById('editDistance').value),
+            duration_mins: document.getElementById('editDuration').value || null,
+            caption: document.getElementById('editCaption').value,
+          }),
+        });
+        loadWalk();
+      } catch (err) {
+        alert('Failed to update: ' + err.message);
+      }
+    }
+
+    async function deleteWalk() {
+      if (!confirm('Delete this activity? This cannot be undone.')) return;
+      try {
+        await App.fetchJSON(`/api/walks/${walkId}`, { method: 'DELETE' });
+        window.location.href = '/dashboard';
+      } catch (err) {
+        alert('Failed to delete: ' + err.message);
+      }
     }
 
     // Decode Google polyline encoding

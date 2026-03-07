@@ -73,7 +73,9 @@
     let unit = 'km';
     let gpxMap;
 
-    document.getElementById('date').valueAsDate = new Date();
+    const dateInput = document.getElementById('date');
+    dateInput.valueAsDate = new Date();
+    dateInput.max = new Date().toISOString().split('T')[0];
 
     function setUnit(u) {
       unit = u;

@@ -221,6 +221,9 @@ router.get('/walks', async (req, res) => {
 router.post('/walks', isAuthenticated, upload.single('gpx'), async (req, res) => {
   try {
     const { date, distance_km, duration_mins, caption } = req.body;
+    if (date && new Date(date) > new Date()) {
+      return res.status(400).json({ error: 'Date cannot be in the future' });
+    }
     const gpxPath = req.file ? req.file.path : null;
 
     const result = await db.query(
@@ -323,6 +326,29 @@ router.post('/walks/:id/comments', isAuthenticated, async (req, res) => {
   } catch (err) {
     console.error('Comment error:', err);
     res.status(500).json({ error: 'Failed to post comment' });
+  }
+});
+
+// --- Edit Walk ---
+router.put('/walks/:id', isAuthenticated, async (req, res) => {
+  try {
+    const { date, distance_km, duration_mins, caption } = req.body;
+    if (date && new Date(date) > new Date()) {
+      return res.status(400).json({ error: 'Date cannot be in the future' });
+    }
+    const result = await db.query(
+      `UPDATE walks SET date = $1, distance_km = $2, duration_mins = $3, caption = $4
+       WHERE id = $5 AND participant_id = $6 RETURNING *`,
+      [date, distance_km, duration_mins || null, caption, req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Walk not found' });
+    }
+    console.log(`[WALK] Updated: walk ${req.params.id} by ${req.user.full_name} (id:${req.user.id})`);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Update walk error:', err);
+    res.status(500).json({ error: 'Failed to update walk' });
   }
 });
 
