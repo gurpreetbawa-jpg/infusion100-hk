@@ -199,20 +199,21 @@
       const actions = document.getElementById('stravaActions');
       if (user.strava_connected) {
         status.innerHTML = '<span class="badge badge-strava">Connected</span>';
+        const saved = (user.strava_sync_types || 'Walk,Hike').split(',').map(t => t.trim());
+        const allTypes = ['Walk', 'Hike', 'Run', 'Ride', 'Swim', 'Workout'];
+        const checkboxes = allTypes.map(t =>
+          `<label><input type="checkbox" class="strava-type" value="${t}" ${saved.includes(t) ? 'checked' : ''}> ${t}</label>`
+        ).join('\n              ');
         actions.innerHTML = `
           <div class="mb-1" style="font-size:0.875rem">
             <strong>Activity types to sync:</strong>
             <div class="flex gap-1 mt-1" style="flex-wrap:wrap">
-              <label><input type="checkbox" class="strava-type" value="Walk" checked> Walk</label>
-              <label><input type="checkbox" class="strava-type" value="Hike" checked> Hike</label>
-              <label><input type="checkbox" class="strava-type" value="Run"> Run</label>
-              <label><input type="checkbox" class="strava-type" value="Ride"> Ride</label>
-              <label><input type="checkbox" class="strava-type" value="Swim"> Swim</label>
-              <label><input type="checkbox" class="strava-type" value="Workout"> Workout</label>
+              ${checkboxes}
             </div>
           </div>
-          <div class="flex gap-1">
-            <button class="btn btn-primary btn-sm" onclick="syncStrava()">Sync from Strava</button>
+          <div class="flex gap-1" style="flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="syncStrava(false)">Sync New</button>
+            <button class="btn btn-outline btn-sm" onclick="syncStrava(true)">Force Re-sync All</button>
             <button class="btn btn-outline btn-sm" onclick="unlinkStrava()">Unlink</button>
           </div>
         `;
@@ -225,16 +226,23 @@
       }
     }
 
-    async function syncStrava() {
+    async function syncStrava(force) {
+      if (force && !confirm('This will delete all existing Strava activities and re-import them. Continue?')) return;
       const checked = [...document.querySelectorAll('.strava-type:checked')].map(c => c.value);
       if (checked.length === 0) {
         App.showAlert(document.getElementById('alertBox'), 'Select at least one activity type', 'danger');
         return;
       }
       try {
-        const result = await App.fetchJSON(`/api/strava/sync?types=${checked.join(',')}`);
+        let url = `/api/strava/sync?types=${checked.join(',')}`;
+        if (force) url += '&force=1';
+        const result = await App.fetchJSON(url);
         App.showAlert(document.getElementById('alertBox'), result.message, 'success');
         loadRecentWalks();
+        const stats = await App.fetchJSON('/api/stats');
+        document.getElementById('totalDistance').textContent = App.formatDistance(stats.total_distance);
+        document.getElementById('totalWalks').textContent = stats.total_walks;
+        document.getElementById('longestWalk').textContent = App.formatDistance(stats.longest_walk);
       } catch (err) {
         App.showAlert(document.getElementById('alertBox'), 'Strava sync failed: ' + err.message, 'danger');
       }

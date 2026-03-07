@@ -140,7 +140,7 @@ app.listen(PORT, async () => {
   console.log('');
   console.log('  OAuth:');
   console.log(`    Google:     ${process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not configured'}`);
-  console.log(`    Apple:      ${process.env.APPLE_CLIENT_ID ? 'configured' : 'not configured'}`);
+  console.log(`    GitHub:     ${process.env.GITHUB_CLIENT_ID ? 'configured' : 'not configured'}`);
   console.log(`    Strava:     ${process.env.STRAVA_CLIENT_ID ? 'configured' : 'not configured'}`);
   console.log('');
 });

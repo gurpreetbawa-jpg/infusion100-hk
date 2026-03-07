@@ -1,6 +1,5 @@
 node_modules/
 .env
-config/apple_private_key.p8
 uploads/
 *.log
 *.har

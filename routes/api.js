@@ -55,6 +55,22 @@ router.get('/participant-count', async (req, res) => {
   }
 });
 
+// --- Community Stats (public) ---
+router.get('/community-stats', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT
+        (SELECT COUNT(*) FROM participants WHERE profile_complete = TRUE) AS walkers,
+        COUNT(*) AS activities,
+        COALESCE(SUM(distance_km), 0) AS total_km
+      FROM walks
+    `);
+    res.json(result.rows[0]);
+  } catch {
+    res.json({ walkers: 0, activities: 0, total_km: 0 });
+  }
+});
+
 // --- Bridges ---
 router.get('/bridges', async (req, res) => {
   try {
@@ -360,10 +376,28 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
       );
     }
 
+    // Force sync: delete all existing Strava activities and re-import
+    const force = req.query.force === '1';
+    if (force) {
+      const deleted = await db.query(
+        'DELETE FROM walks WHERE participant_id = $1 AND strava_id IS NOT NULL',
+        [req.user.id]
+      );
+      console.log(`[STRAVA] Force sync: deleted ${deleted.rowCount} existing Strava activities for ${req.user.full_name}`);
+    }
+
     // Filter by activity types if provided (comma-separated query param)
     const typeFilter = req.query.types
       ? req.query.types.split(',').map(t => t.trim())
       : null;
+
+    // Save the user's type preference
+    if (req.query.types) {
+      await db.query(
+        'UPDATE participants SET strava_sync_types = $1 WHERE id = $2',
+        [req.query.types, req.user.id]
+      );
+    }
 
     // Fetch activities from March 1st onwards, paginating
     const after = Math.floor(new Date('2026-03-01').getTime() / 1000);

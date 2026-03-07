@@ -28,15 +28,11 @@ services:
         sync: false
       - key: GOOGLE_CALLBACK_URL
         sync: false
-      - key: APPLE_CLIENT_ID
+      - key: GITHUB_CLIENT_ID
         sync: false
-      - key: APPLE_TEAM_ID
+      - key: GITHUB_CLIENT_SECRET
         sync: false
-      - key: APPLE_KEY_ID
-        sync: false
-      - key: APPLE_PRIVATE_KEY_PATH
-        sync: false
-      - key: APPLE_CALLBACK_URL
+      - key: GITHUB_CALLBACK_URL
         sync: false
       - key: STRAVA_CLIENT_ID
         sync: false

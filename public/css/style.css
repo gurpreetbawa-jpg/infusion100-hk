@@ -702,12 +702,19 @@ tr:hover td { background: var(--surface-alt); }
 }
 .oauth-btn-google:hover { background: var(--surface-alt); }
 
-.oauth-btn-apple {
-  background: black;
+.oauth-btn-github {
+  background: #24292e;
   color: white;
-  border-color: black;
+  border-color: #24292e;
 }
-.oauth-btn-apple:hover { background: #222; }
+.oauth-btn-github:hover { background: #2f363d; }
+
+.oauth-btn-strava {
+  background: #FC4C02;
+  color: white;
+  border-color: #FC4C02;
+}
+.oauth-btn-strava:hover { background: #e04400; }
 
 .oauth-icon { width: 20px; height: 20px; }
 

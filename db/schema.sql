@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS participants (
   strava_refresh_token TEXT,
   strava_token_expires_at BIGINT,
   strava_athlete_id BIGINT,
+  strava_sync_types VARCHAR(255) DEFAULT 'Walk,Hike',
   role          VARCHAR(20) DEFAULT 'participant',
   profile_complete BOOLEAN DEFAULT FALSE,
   gdpr_consent  BOOLEAN DEFAULT FALSE,

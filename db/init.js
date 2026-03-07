@@ -40,6 +40,15 @@ async function run() {
   console.log('Seeding bridges...');
   await pool.query(seed);
 
+  // Add any missing columns to existing tables
+  const migrations = [
+    `ALTER TABLE participants ADD COLUMN IF NOT EXISTS strava_sync_types VARCHAR(255) DEFAULT 'Walk,Hike'`,
+    `ALTER TABLE walks ADD COLUMN IF NOT EXISTS activity_type VARCHAR(30)`,
+  ];
+  for (const sql of migrations) {
+    await pool.query(sql).catch(() => {});
+  }
+
   console.log(reset ? 'Database reset complete.' : 'Database initialized.');
   await pool.end();
 }

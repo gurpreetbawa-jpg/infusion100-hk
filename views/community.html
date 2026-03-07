@@ -19,6 +19,21 @@
       <a href="/walk/log" class="btn btn-primary btn-sm" id="logWalkBtn" style="display:none">Log a Walk</a>
     </div>
 
+    <div class="stats-grid" id="communityStats" style="margin-bottom:1.5rem">
+      <div class="stat-card">
+        <div class="stat-value" id="statWalkers">--</div>
+        <div class="stat-label">Walkers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statActivities">--</div>
+        <div class="stat-label">Activities</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statDistance">--</div>
+        <div class="stat-label">Total Distance</div>
+      </div>
+    </div>
+
     <div id="feed">
       <div class="loading-overlay"><span class="spinner"></span> Loading...</div>
     </div>
@@ -38,6 +53,13 @@
       if (currentUser) {
         document.getElementById('logWalkBtn').style.display = '';
       }
+      // Community stats
+      try {
+        const s = await App.fetchJSON('/api/community-stats');
+        document.getElementById('statWalkers').textContent = s.walkers;
+        document.getElementById('statActivities').textContent = s.activities;
+        document.getElementById('statDistance').textContent = App.formatDistance(s.total_km);
+      } catch {}
       loadWalks();
     }
 
