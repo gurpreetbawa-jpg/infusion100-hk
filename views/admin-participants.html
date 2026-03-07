@@ -15,12 +15,7 @@
   <nav class="navbar">
     <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
     <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
-    <ul class="navbar-links">
-      <li><a href="/admin">Admin</a></li>
-      <li><a href="/admin/participants" class="active">Participants</a></li>
-      <li><a href="/admin/map">Live Map</a></li>
-      <li><a href="/auth/logout">Log Out</a></li>
-    </ul>
+    <ul class="navbar-links" id="navLinks"></ul>
   </nav>
 
   <div class="container">
@@ -240,6 +235,7 @@
       }
     }
 
+    App.loadUser();
     loadParticipants();
   </script>
 </body>

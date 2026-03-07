@@ -16,12 +16,7 @@
   <nav class="navbar">
     <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
     <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
-    <ul class="navbar-links">
-      <li><a href="/admin">Admin</a></li>
-      <li><a href="/admin/participants">Participants</a></li>
-      <li><a href="/admin/map" class="active">Live Map</a></li>
-      <li><a href="/auth/logout">Log Out</a></li>
-    </ul>
+    <ul class="navbar-links" id="navLinks"></ul>
   </nav>
 
   <div style="padding:0.5rem 1rem; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between">
@@ -34,6 +29,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/app.js"></script>
   <script>
+    App.loadUser();
     const map = L.map('adminMap').setView([51.49, -0.12], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap'
