@@ -42,7 +42,7 @@ async function run() {
 
   // Add any missing columns to existing tables
   const migrations = [
-    `ALTER TABLE participants ADD COLUMN IF NOT EXISTS strava_sync_types VARCHAR(255) DEFAULT 'Walk,Hike'`,
+    `ALTER TABLE participants ADD COLUMN IF NOT EXISTS strava_sync_types VARCHAR(255) DEFAULT 'Walk,Hike,Run'`,
     `ALTER TABLE walks ADD COLUMN IF NOT EXISTS activity_type VARCHAR(30)`,
   ];
   for (const sql of migrations) {

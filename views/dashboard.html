@@ -192,7 +192,7 @@
       const actions = document.getElementById('stravaActions');
       if (user.strava_connected) {
         status.innerHTML = '<span class="badge badge-strava">Connected</span>';
-        const saved = (user.strava_sync_types || 'Walk,Hike').split(',').map(t => t.trim());
+        const saved = (user.strava_sync_types || 'Walk,Hike,Run').split(',').map(t => t.trim());
         const allTypes = ['Walk', 'Hike', 'Run', 'Ride', 'Swim', 'Workout'];
         const checkboxes = allTypes.map(t =>
           `<label><input type="checkbox" class="strava-type" value="${t}" ${saved.includes(t) ? 'checked' : ''}> ${t}</label>`
