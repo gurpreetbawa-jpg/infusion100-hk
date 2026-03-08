@@ -1,16 +1,22 @@
 const express = require('express');
 const path = require('path');
 const { isAuthenticated, isAdmin, isProfileComplete } = require('../middleware/auth');
+const features = require('../config/feature-toggles');
 const router = express.Router();
 
 const sendPage = (page) => (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'views', page));
 };
 
+// Requires admin when a feature toggle is off, otherwise falls back to given middleware
+function gated(toggle, ...fallback) {
+  return features[toggle] ? fallback : [isAdmin];
+}
+
 // Public pages
 router.get('/', sendPage('index.html'));
 router.get('/login', sendPage('login.html'));
-router.get('/leaderboard', sendPage('leaderboard.html'));
+router.get('/leaderboard', ...gated('EVENT_DAY_TRACKING'), sendPage('leaderboard.html'));
 router.get('/privacy', sendPage('privacy.html'));
 
 // Auth-required pages
@@ -20,7 +26,7 @@ router.get('/walk/log', isAuthenticated, isProfileComplete, sendPage('log-walk.h
 router.get('/walk/:id', sendPage('walk-detail.html'));
 router.get('/community', sendPage('community.html'));
 router.get('/stats', isAuthenticated, isProfileComplete, sendPage('stats.html'));
-router.get('/event', isAuthenticated, isProfileComplete, sendPage('event.html'));
+router.get('/event', ...gated('EVENT_DAY_TRACKING', isAuthenticated, isProfileComplete), sendPage('event.html'));
 
 // Admin pages
 router.get('/admin', isAdmin, sendPage('admin.html'));

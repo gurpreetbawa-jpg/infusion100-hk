@@ -4,9 +4,14 @@ const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
 const db = require('../db');
-const { isAuthenticated } = require('../middleware/auth');
+const { isAuthenticated, isAdmin } = require('../middleware/auth');
 const { decrypt, encrypt } = require('../config/encryption');
+const features = require('../config/feature-toggles');
 const router = express.Router();
+
+function gated(toggle, ...fallback) {
+  return features[toggle] ? fallback : [isAdmin];
+}
 
 const upload = multer({
   dest: 'uploads/',
@@ -62,6 +67,14 @@ async function compressImage(inputPath) {
 }
 
 const STRAVA_ELIGIBLE_EMAIL = 'raj.shah.uk@gmail.com';
+
+// --- Feature Toggles ---
+router.get('/features', (req, res) => {
+  const isAdmin = req.isAuthenticated() && req.user.role === 'admin';
+  res.json({
+    eventDayTracking: features.EVENT_DAY_TRACKING || isAdmin,
+  });
+});
 
 // --- Profile ---
 router.get('/me', isAuthenticated, (req, res) => {
@@ -127,7 +140,7 @@ router.get('/bridges', async (req, res) => {
 });
 
 // --- Location Tracking ---
-router.post('/location', isAuthenticated, async (req, res) => {
+router.post('/location', ...gated('EVENT_DAY_TRACKING', isAuthenticated), async (req, res) => {
   try {
     const { lat, lng } = req.body;
     if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
@@ -143,7 +156,7 @@ router.post('/location', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/tracking/start', isAuthenticated, async (req, res) => {
+router.post('/tracking/start', ...gated('EVENT_DAY_TRACKING', isAuthenticated), async (req, res) => {
   try {
     // End any active sessions first
     await db.query(
@@ -162,7 +175,7 @@ router.post('/tracking/start', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/tracking/stop', isAuthenticated, async (req, res) => {
+router.post('/tracking/stop', ...gated('EVENT_DAY_TRACKING', isAuthenticated), async (req, res) => {
   try {
     await db.query(
       `UPDATE tracking_sessions SET status = 'stopped', stopped_at = NOW()
@@ -176,7 +189,7 @@ router.post('/tracking/stop', isAuthenticated, async (req, res) => {
   }
 });
 
-router.get('/tracking/status', isAuthenticated, async (req, res) => {
+router.get('/tracking/status', ...gated('EVENT_DAY_TRACKING', isAuthenticated), async (req, res) => {
   try {
     const result = await db.query(
       `SELECT * FROM tracking_sessions WHERE participant_id = $1 AND status = 'active' LIMIT 1`,
@@ -188,8 +201,8 @@ router.get('/tracking/status', isAuthenticated, async (req, res) => {
   }
 });
 
-// --- Live Locations (public) ---
-router.get('/locations/live', async (req, res) => {
+// --- Live Locations ---
+router.get('/locations/live', ...gated('EVENT_DAY_TRACKING'), async (req, res) => {
   try {
     const result = await db.query(`
       SELECT DISTINCT ON (p.id)

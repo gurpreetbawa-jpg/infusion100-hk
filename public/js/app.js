@@ -1,6 +1,7 @@
 // Shared utilities
 const App = {
   user: null,
+  features: {},
 
   async fetchJSON(url, options = {}) {
     const res = await fetch(url, {
@@ -20,7 +21,12 @@ const App = {
 
   async loadUser() {
     try {
-      this.user = await this.fetchJSON('/api/me');
+      const [user, features] = await Promise.all([
+        this.fetchJSON('/api/me').catch(() => null),
+        this.fetchJSON('/api/features').catch(() => ({})),
+      ]);
+      this.user = user;
+      this.features = features;
     } catch {
       this.user = null;
     }
@@ -158,18 +164,19 @@ App.buildNav = function () {
   const path = window.location.pathname;
   const loggedIn = !!this.user;
 
+  const isAdmin = loggedIn && this.user.role === 'admin';
   const links = loggedIn
     ? [
         ['/dashboard', 'Dashboard'],
         ['/community', 'Community'],
         ['/stats', 'My Stats'],
-        ['/leaderboard', 'Live Map'],
-        ...(this.user.role === 'admin' ? [['/admin', 'Admin']] : []),
+        ...(this.features.eventDayTracking ? [['/leaderboard', 'Live Map']] : []),
+        ...(isAdmin ? [['/admin', 'Admin']] : []),
         ['/auth/logout', 'Log Out'],
       ]
     : [
         ['/community', 'Community'],
-        ['/leaderboard', 'Live Map'],
+        ...(this.features.eventDayTracking ? [['/leaderboard', 'Live Map']] : []),
         ['/login', 'Log In'],
       ];
 

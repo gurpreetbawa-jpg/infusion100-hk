@@ -35,9 +35,8 @@
 
     <div class="page-header">
       <h1 id="greeting">Dashboard</h1>
-      <div class="flex gap-1">
+      <div class="flex gap-1" id="headerActions">
         <a href="/walk/log" class="btn btn-primary">Log a Walk</a>
-        <a href="/event" class="btn btn-secondary">Event Day</a>
       </div>
     </div>
 
@@ -126,6 +125,11 @@
       if (!user) return window.location.href = '/login';
 
       document.getElementById('greeting').textContent = `Hi, ${user.full_name?.split(' ')[0] || 'there'}!`;
+
+      if (App.features.eventDayTracking) {
+        document.getElementById('headerActions').insertAdjacentHTML('beforeend',
+          '<a href="/event" class="btn btn-secondary">Event Day</a>');
+      }
 
       // Days until event
       const eventDate = new Date('2026-05-16');
