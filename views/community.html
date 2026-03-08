@@ -96,6 +96,7 @@
               </div>
 
               ${w.caption ? `<p class="walk-card-caption">${App.escapeHtml(w.caption)}</p>` : ''}
+              ${w.description ? `<p class="walk-card-description" style="color:var(--text-muted);font-size:0.875rem;margin:0.25rem 0 0.5rem">${App.escapeHtml(w.description)}</p>` : ''}
               ${w.image_path ? `<img src="/${w.image_path}" alt="Walk photo" class="walk-card-image" loading="lazy">` : ''}
 
               <div class="walk-card-stats">

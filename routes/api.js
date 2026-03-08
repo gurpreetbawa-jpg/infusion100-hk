@@ -384,14 +384,14 @@ router.post('/walks/:id/comments', isAuthenticated, async (req, res) => {
 // --- Edit Walk ---
 router.put('/walks/:id', isAuthenticated, async (req, res) => {
   try {
-    const { date, distance_km, duration_mins, caption } = req.body;
+    const { date, distance_km, duration_mins, caption, description } = req.body;
     if (date && new Date(date) > new Date()) {
       return res.status(400).json({ error: 'Date cannot be in the future' });
     }
     const result = await db.query(
-      `UPDATE walks SET date = $1, distance_km = $2, duration_mins = $3, caption = $4
-       WHERE id = $5 AND participant_id = $6 RETURNING *`,
-      [date, distance_km, duration_mins || null, caption, req.params.id, req.user.id]
+      `UPDATE walks SET date = $1, distance_km = $2, duration_mins = $3, caption = $4, description = $5
+       WHERE id = $6 AND participant_id = $7 RETURNING *`,
+      [date, distance_km, duration_mins || null, caption, description || null, req.params.id, req.user.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Walk not found' });
@@ -511,15 +511,31 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
         );
         if (exists.rows.length > 0) continue;
 
+        // Fetch detailed activity to get description
+        let description = null;
+        try {
+          const detailRes = await fetch(
+            `https://www.strava.com/api/v3/activities/${activity.id}`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+          if (detailRes.ok) {
+            const detail = await detailRes.json();
+            description = detail.description || null;
+          }
+        } catch (err) {
+          console.log(`[STRAVA] Could not fetch detail for activity ${activity.id}: ${err.message}`);
+        }
+
         await db.query(
-          `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, polyline, strava_id, activity_type)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, description, polyline, strava_id, activity_type)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
             req.user.id,
             activity.start_date_local.split('T')[0],
             (activity.distance / 1000).toFixed(2),
             Math.round(activity.moving_time / 60),
             activity.name,
+            description,
             activity.map?.summary_polyline || null,
             activity.id,
             actType,

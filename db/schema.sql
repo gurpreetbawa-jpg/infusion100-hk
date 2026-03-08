@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS walks (
   distance_km   DECIMAL(8,2),
   duration_mins INT,
   caption       TEXT,
+  description   TEXT,
   gpx_path      TEXT,
   image_path    TEXT,
   polyline      TEXT,
