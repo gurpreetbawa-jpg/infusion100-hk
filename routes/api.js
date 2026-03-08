@@ -287,7 +287,7 @@ router.post('/walks', isAuthenticated, uploadWalk.fields([
   { name: 'image', maxCount: 1 },
 ]), async (req, res) => {
   try {
-    const { date, distance_km, duration_mins, caption } = req.body;
+    const { date, distance_km, duration_mins, caption, description } = req.body;
     if (date && new Date(date) > new Date()) {
       return res.status(400).json({ error: 'Date cannot be in the future' });
     }
@@ -300,9 +300,9 @@ router.post('/walks', isAuthenticated, uploadWalk.fields([
     }
 
     const result = await db.query(
-      `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, gpx_path, image_path)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [req.user.id, date, distance_km, duration_mins, caption, gpxPath, imagePath]
+      `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, description, gpx_path, image_path)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [req.user.id, date, distance_km, duration_mins, caption, description || null, gpxPath, imagePath]
     );
     console.log(`[WALK] Logged: "${caption || 'Walk'}" ${distance_km}km by ${req.user.full_name} (id:${req.user.id})`);
     res.json(result.rows[0]);

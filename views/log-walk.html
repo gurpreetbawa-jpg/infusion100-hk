@@ -47,8 +47,13 @@
         </div>
 
         <div class="form-group">
-          <label for="caption">Route Description / Caption</label>
-          <textarea id="caption" class="form-control" rows="3" placeholder="Describe your walk..."></textarea>
+          <label for="caption">Caption</label>
+          <input type="text" id="caption" class="form-control" placeholder="e.g. Morning walk along the Thames" maxlength="200">
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description (optional)</label>
+          <textarea id="description" class="form-control" rows="3" placeholder="Any extra details about your walk..."></textarea>
         </div>
 
         <div class="form-group">
@@ -160,6 +165,7 @@
         formData.append('distance_km', distKm.toFixed(2));
         formData.append('duration_mins', document.getElementById('duration').value || '');
         formData.append('caption', document.getElementById('caption').value);
+        formData.append('description', document.getElementById('description').value);
 
         const imageFile = document.getElementById('image').files[0];
         if (imageFile) {
