@@ -168,11 +168,20 @@ app.listen(PORT, async () => {
   console.log(`    Strava:     ${process.env.STRAVA_CLIENT_ID ? 'configured' : 'not configured'}`);
   console.log('');
 
-  // Engagement notification scheduler (every 2 hours)
+  // Engagement notification scheduler (every odd hour: 1, 3, 5, …)
   if (app.locals.webpush) {
-    setTimeout(() => runEngagementNotifications(app.locals.webpush), 30 * 1000);
-    setInterval(() => runEngagementNotifications(app.locals.webpush), 2 * 60 * 60 * 1000);
-    console.log('  Engagement notifications: scheduled (every 2h)');
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    const now = new Date();
+    let nextHour = new Date(now);
+    nextHour.setMinutes(0, 0, 0);
+    nextHour.setHours(nextHour.getHours() + 1);
+    if (nextHour.getHours() % 2 === 0) nextHour.setHours(nextHour.getHours() + 1);
+    const delay = nextHour - now;
+    setTimeout(() => {
+      runEngagementNotifications(app.locals.webpush);
+      setInterval(() => runEngagementNotifications(app.locals.webpush), TWO_HOURS);
+    }, delay);
+    console.log(`  Engagement notifications: next run at ${nextHour.toLocaleTimeString()}, then every 2h`);
     console.log('');
   }
 });
