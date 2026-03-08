@@ -60,8 +60,8 @@ async function run() {
     `ALTER TABLE walks ADD COLUMN IF NOT EXISTS description TEXT`,
     `ALTER TABLE walk_likes ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
     `ALTER TABLE participants ADD COLUMN IF NOT EXISTS last_engagement_notified_at TIMESTAMPTZ DEFAULT NOW()`,
-    // Move caption → description for non-Strava walks that had descriptions in caption
-    `UPDATE walks SET description = caption, caption = NULL WHERE strava_id IS NULL AND caption IS NOT NULL AND description IS NULL`,
+    // Copy caption into description for walks that don't have one yet
+    `UPDATE walks SET description = caption WHERE caption IS NOT NULL AND description IS NULL`,
   ];
   for (const sql of migrations) {
     await pool.query(sql).catch(() => {});

@@ -8,7 +8,7 @@ services:
     name: infusion100
     runtime: node
     plan: free
-    buildCommand: npm install && node db/init.js
+    buildCommand: npm install && node db/init.js && node db/fix-caption-migration.js
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
