@@ -39,6 +39,15 @@
       </div>
     </div>
 
+    <div class="flex" style="justify-content:flex-end;align-items:center;gap:0.5rem;margin-bottom:0.75rem">
+      <span class="text-muted" style="font-size:0.8rem" id="sortLabel">Activity date</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="sortToggle" onchange="toggleSort()">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="text-muted" style="font-size:0.8rem" id="sortLabelRight">Upload date</span>
+    </div>
+
     <div id="feed">
       <div class="loading-overlay"><span class="spinner"></span> Loading...</div>
     </div>
@@ -52,6 +61,7 @@
   <script>
     let nextCursor = null;
     let currentUser = null;
+    let sortMode = 'date';
 
     async function init() {
       currentUser = await App.loadUser();
@@ -68,9 +78,16 @@
       loadWalks();
     }
 
+    function toggleSort() {
+      sortMode = document.getElementById('sortToggle').checked ? 'upload' : 'date';
+      nextCursor = null;
+      document.getElementById('feed').innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Loading...</div>';
+      loadWalks();
+    }
+
     async function loadWalks() {
       try {
-        let url = '/api/walks?limit=15';
+        let url = `/api/walks?limit=15&sort=${sortMode}`;
         if (nextCursor) url += `&cursor=${nextCursor}`;
 
         const data = await App.fetchJSON(url);
@@ -90,7 +107,8 @@
                 ${App.renderAvatar(w)}
                 <div class="walk-card-meta">
                   <div class="walk-card-name">${App.escapeHtml(w.full_name)}</div>
-                  <div class="walk-card-date">${App.formatRelative(w.created_at)}</div>
+                  <div class="walk-card-date">${App.formatRelative(w.date)}</div>
+                  <div class="walk-card-uploaded">uploaded ${App.formatRelative(w.created_at)}</div>
                 </div>
                 ${w.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}
               </div>

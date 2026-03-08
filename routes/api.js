@@ -211,7 +211,8 @@ router.get('/locations/live', async (req, res) => {
 // --- Walks ---
 router.get('/walks', async (req, res) => {
   try {
-    const { cursor, limit = 20, participant_id } = req.query;
+    const { cursor, limit = 20, participant_id, sort } = req.query;
+    const sortByDate = sort !== 'upload';
     const pageLimit = Math.min(parseInt(limit) || 20, 50);
     let query = `
       SELECT w.*, p.full_name, p.avatar_url,
@@ -228,13 +229,25 @@ router.get('/walks', async (req, res) => {
       conditions.push(`w.participant_id = $${params.length}`);
     }
     if (cursor) {
-      params.push(cursor);
-      conditions.push(`w.id < $${params.length}`);
+      if (sortByDate && cursor.includes('_')) {
+        const sep = cursor.indexOf('_');
+        const cursorDate = cursor.substring(0, sep);
+        const cursorId = cursor.substring(sep + 1);
+        params.push(cursorDate, cursorId);
+        conditions.push(`(w.date < $${params.length - 1} OR (w.date = $${params.length - 1} AND w.id < $${params.length}))`);
+      } else {
+        params.push(cursor);
+        conditions.push(`w.id < $${params.length}`);
+      }
     }
     if (conditions.length) query += ' WHERE ' + conditions.join(' AND ');
 
     params.push(pageLimit);
-    query += ` ORDER BY w.created_at DESC LIMIT $${params.length}`;
+    if (sortByDate) {
+      query += ` ORDER BY w.date DESC, w.id DESC LIMIT $${params.length}`;
+    } else {
+      query += ` ORDER BY w.created_at DESC LIMIT $${params.length}`;
+    }
 
     const result = await db.query(query, params);
 
@@ -251,8 +264,16 @@ router.get('/walks', async (req, res) => {
       }
     }
 
-    const nextCursor = result.rows.length === pageLimit
-      ? result.rows[result.rows.length - 1].id : null;
+    let nextCursor = null;
+    if (result.rows.length === pageLimit) {
+      const last = result.rows[result.rows.length - 1];
+      if (sortByDate) {
+        const d = last.date instanceof Date ? last.date.toISOString().split('T')[0] : String(last.date).split('T')[0];
+        nextCursor = `${d}_${last.id}`;
+      } else {
+        nextCursor = last.id;
+      }
+    }
 
     res.json({ walks: result.rows, nextCursor });
   } catch (err) {
