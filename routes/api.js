@@ -10,7 +10,9 @@ const upload = multer({
   dest: 'uploads/',
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (path.extname(file.originalname).toLowerCase() === '.gpx') {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedMimes = ['application/gpx+xml', 'text/xml', 'application/xml', 'application/octet-stream'];
+    if (ext === '.gpx' && allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error('Only GPX files allowed'));

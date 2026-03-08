@@ -53,7 +53,7 @@
 
         <div class="form-group">
           <label for="gpx">GPX File (optional)</label>
-          <input type="file" id="gpx" accept=".gpx" class="form-control">
+          <input type="file" id="gpx" accept=".gpx,application/gpx+xml,text/xml,application/xml" class="form-control">
           <p class="form-hint">Upload a GPX file to show your route on a map.</p>
         </div>
 
@@ -137,10 +137,18 @@
         formData.append('caption', document.getElementById('caption').value);
 
         const gpxFile = document.getElementById('gpx').files[0];
-        if (gpxFile) formData.append('gpx', gpxFile);
+        if (gpxFile) {
+          if (!gpxFile.name.toLowerCase().endsWith('.gpx')) {
+            throw new Error('Only GPX files are allowed. Please select a .gpx file.');
+          }
+          formData.append('gpx', gpxFile);
+        }
 
         const res = await fetch('/api/walks', { method: 'POST', body: formData });
-        if (!res.ok) throw new Error('Failed to save walk');
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to save walk');
+        }
         const walk = await res.json();
         window.location.href = `/walk/${walk.id}`;
       } catch (err) {
