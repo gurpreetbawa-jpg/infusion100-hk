@@ -58,11 +58,11 @@
                 </div>
                 <div class="form-group">
                   <label>Distance (km)</label>
-                  <input type="number" id="editDistance" class="form-control" step="0.1" min="0" value="${walk.distance_km}" required>
+                  <input type="number" id="editDistance" class="form-control" step="0.1" min="0" inputmode="decimal" value="${walk.distance_km}" required>
                 </div>
                 <div class="form-group">
                   <label>Duration (minutes)</label>
-                  <input type="number" id="editDuration" class="form-control" min="0" value="${walk.duration_mins || ''}">
+                  <input type="number" id="editDuration" class="form-control" min="0" inputmode="numeric" value="${walk.duration_mins || ''}">
                 </div>
                 <div class="form-group">
                   <label>Caption</label>
