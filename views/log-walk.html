@@ -52,6 +52,14 @@
         </div>
 
         <div class="form-group">
+          <label for="image">Photo (optional)</label>
+          <input type="file" id="image" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" class="form-control">
+          <p class="form-hint">Upload a photo from your walk. It will be compressed automatically.</p>
+        </div>
+
+        <img id="imagePreview" class="walk-card-image hidden" alt="Preview">
+
+        <div class="form-group">
           <label for="gpx">GPX File (optional)</label>
           <input type="file" id="gpx" accept=".gpx,application/gpx+xml,text/xml,application/xml" class="form-control">
           <p class="form-hint">Upload a GPX file to show your route on a map.</p>
@@ -83,6 +91,23 @@
         btn.classList.toggle('active', btn.dataset.unit === u);
       });
     }
+
+    // Image preview
+    document.getElementById('image').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const preview = document.getElementById('imagePreview');
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          preview.src = ev.target.result;
+          preview.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+      } else {
+        preview.classList.add('hidden');
+        preview.src = '';
+      }
+    });
 
     // GPX preview
     document.getElementById('gpx').addEventListener('change', (e) => {
@@ -135,6 +160,11 @@
         formData.append('distance_km', distKm.toFixed(2));
         formData.append('duration_mins', document.getElementById('duration').value || '');
         formData.append('caption', document.getElementById('caption').value);
+
+        const imageFile = document.getElementById('image').files[0];
+        if (imageFile) {
+          formData.append('image', imageFile);
+        }
 
         const gpxFile = document.getElementById('gpx').files[0];
         if (gpxFile) {

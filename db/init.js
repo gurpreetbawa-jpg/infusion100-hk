@@ -46,6 +46,7 @@ async function run() {
     `ALTER TABLE participants ADD COLUMN IF NOT EXISTS strava_sync_types VARCHAR(255) DEFAULT 'Walk,Hike,Run'`,
     `UPDATE participants SET strava_sync_types = 'Walk,Hike,Run' WHERE strava_sync_types = 'Walk,Hike'`,
     `ALTER TABLE walks ADD COLUMN IF NOT EXISTS activity_type VARCHAR(30)`,
+    `ALTER TABLE walks ADD COLUMN IF NOT EXISTS image_path TEXT`,
     `ALTER TABLE participants DROP COLUMN IF EXISTS start_bridge`,
     `ALTER TABLE participants DROP COLUMN IF EXISTS end_bridge`,
     `CREATE TABLE IF NOT EXISTS push_subscriptions (

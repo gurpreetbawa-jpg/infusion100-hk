@@ -75,8 +75,9 @@
       }
 
       list.innerHTML = data.walks.map(w => `
-        <a href="/walk/${w.id}" class="walk-card" style="display:block;text-decoration:none;color:inherit;margin-bottom:0.5rem">
-          <div class="flex-between" style="align-items:start">
+        <a href="/walk/${w.id}" class="walk-card" style="display:flex;gap:0.75rem;align-items:center;text-decoration:none;color:inherit;margin-bottom:0.5rem">
+          ${w.image_path ? `<img src="/${w.image_path}" alt="" class="walk-card-thumb" loading="lazy">` : ''}
+          <div class="flex-between" style="align-items:start;flex:1;min-width:0">
             <div style="flex:1;min-width:0">
               <strong>${App.escapeHtml(w.caption || 'Activity')}</strong>
               ${w.strava_id ? `<span class="badge badge-strava" style="margin-left:0.5rem">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}

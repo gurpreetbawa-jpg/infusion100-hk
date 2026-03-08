@@ -76,6 +76,7 @@
             ` : ''}
 
             ${walk.caption ? `<p class="walk-card-caption">${App.escapeHtml(walk.caption)}</p>` : ''}
+            ${walk.image_path ? `<img src="/${walk.image_path}" alt="Walk photo" class="walk-card-image" loading="lazy">` : ''}
 
             <div class="walk-card-stats">
               <span><strong>${App.formatDistance(walk.distance_km)}</strong></span>

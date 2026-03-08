@@ -1,6 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+const sharp = require('sharp');
 const db = require('../db');
 const { isAuthenticated } = require('../middleware/auth');
 const { decrypt, encrypt } = require('../config/encryption');
@@ -19,6 +21,45 @@ const upload = multer({
     }
   },
 });
+
+const uploadWalk = multer({
+  dest: 'uploads/',
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'gpx') {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const allowedMimes = ['application/gpx+xml', 'text/xml', 'application/xml', 'application/octet-stream'];
+      if (ext === '.gpx' && allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only GPX files allowed'));
+      }
+    } else if (file.fieldname === 'image') {
+      const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+      if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only JPEG, PNG, WebP, or HEIC images allowed'));
+      }
+    } else {
+      cb(new Error('Unexpected field'));
+    }
+  },
+});
+
+async function compressImage(inputPath) {
+  const outputDir = path.join(__dirname, '..', 'uploads', 'images');
+  fs.mkdirSync(outputDir, { recursive: true });
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+  const outputPath = path.join(outputDir, filename);
+  await sharp(inputPath)
+    .rotate()
+    .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 75 })
+    .toFile(outputPath);
+  fs.unlinkSync(inputPath);
+  return `uploads/images/${filename}`;
+}
 
 const STRAVA_ELIGIBLE_EMAIL = 'raj.shah.uk@gmail.com';
 
@@ -220,18 +261,27 @@ router.get('/walks', async (req, res) => {
   }
 });
 
-router.post('/walks', isAuthenticated, upload.single('gpx'), async (req, res) => {
+router.post('/walks', isAuthenticated, uploadWalk.fields([
+  { name: 'gpx', maxCount: 1 },
+  { name: 'image', maxCount: 1 },
+]), async (req, res) => {
   try {
     const { date, distance_km, duration_mins, caption } = req.body;
     if (date && new Date(date) > new Date()) {
       return res.status(400).json({ error: 'Date cannot be in the future' });
     }
-    const gpxPath = req.file ? req.file.path : null;
+    const gpxFile = req.files?.gpx?.[0];
+    const imageFile = req.files?.image?.[0];
+    const gpxPath = gpxFile ? gpxFile.path : null;
+    let imagePath = null;
+    if (imageFile) {
+      imagePath = await compressImage(imageFile.path);
+    }
 
     const result = await db.query(
-      `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, gpx_path)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [req.user.id, date, distance_km, duration_mins, caption, gpxPath]
+      `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, gpx_path, image_path)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [req.user.id, date, distance_km, duration_mins, caption, gpxPath, imagePath]
     );
     console.log(`[WALK] Logged: "${caption || 'Walk'}" ${distance_km}km by ${req.user.full_name} (id:${req.user.id})`);
     res.json(result.rows[0]);
@@ -358,12 +408,16 @@ router.put('/walks/:id', isAuthenticated, async (req, res) => {
 router.delete('/walks/:id', isAuthenticated, async (req, res) => {
   try {
     const result = await db.query(
-      'DELETE FROM walks WHERE id = $1 AND participant_id = $2 RETURNING id',
+      'DELETE FROM walks WHERE id = $1 AND participant_id = $2 RETURNING id, gpx_path, image_path',
       [req.params.id, req.user.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Walk not found' });
     }
+    // Clean up files
+    const walk = result.rows[0];
+    if (walk.gpx_path) fs.unlink(walk.gpx_path, () => {});
+    if (walk.image_path) fs.unlink(walk.image_path, () => {});
     console.log(`[WALK] Deleted: walk ${req.params.id} by ${req.user.full_name} (id:${req.user.id})`);
     res.json({ deleted: true });
   } catch (err) {

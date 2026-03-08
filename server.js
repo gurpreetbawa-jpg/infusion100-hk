@@ -93,7 +93,7 @@ app.use((req, res, next) => {
 // Request logging
 app.use((req, res, next) => {
   // Skip static files and noisy endpoints
-  if (req.path.match(/\.(css|js|ico|png|jpg|svg|woff2?)$/) || req.path === '/api/locations/live') {
+  if (req.path.match(/\.(css|js|ico|png|jpg|webp|svg|woff2?)$/) || req.path === '/api/locations/live') {
     return next();
   }
   const start = Date.now();
@@ -109,6 +109,7 @@ app.use((req, res, next) => {
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads/images', express.static(path.join(__dirname, 'uploads', 'images')));
 
 // Routes
 app.use('/auth', require('./routes/auth'));

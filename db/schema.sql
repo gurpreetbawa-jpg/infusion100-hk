@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS walks (
   duration_mins INT,
   caption       TEXT,
   gpx_path      TEXT,
+  image_path    TEXT,
   polyline      TEXT,
   strava_id     BIGINT UNIQUE,
   activity_type VARCHAR(30),

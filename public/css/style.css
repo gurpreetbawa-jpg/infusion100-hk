@@ -344,6 +344,22 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   font-size: 0.9375rem;
 }
 
+.walk-card-image {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  margin: 0.75rem 0;
+  max-height: 400px;
+  object-fit: cover;
+}
+
+.walk-card-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
 .walk-card-map {
   width: 100%;
   height: 200px;

@@ -312,14 +312,15 @@
         container.innerHTML = data.walks.map(w => `
           <div class="walk-card" style="margin-bottom:0.5rem">
             <div class="flex-between">
-              <a href="/walk/${w.id}" style="text-decoration:none;color:inherit;flex:1">
-                <div>
+              <a href="/walk/${w.id}" style="text-decoration:none;color:inherit;flex:1;display:flex;gap:0.75rem;align-items:center">
+                ${w.image_path ? `<img src="/${w.image_path}" alt="" class="walk-card-thumb" loading="lazy">` : ''}
+                <div style="min-width:0;flex:1">
                   <strong>${App.escapeHtml(w.caption || 'Walk')}</strong>
                   ${w.strava_id ? `<span class="badge badge-strava" style="margin-left:0.5rem">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}
-                </div>
-                <div class="walk-card-stats" style="margin:0.375rem 0 0">
-                  <span>${App.formatDistance(w.distance_km)}</span>
-                  <span>${App.formatDuration(w.duration_mins)}</span>
+                  <div class="walk-card-stats" style="margin:0.375rem 0 0">
+                    <span>${App.formatDistance(w.distance_km)}</span>
+                    <span>${App.formatDuration(w.duration_mins)}</span>
+                  </div>
                 </div>
               </a>
               <div style="display:flex;align-items:start;gap:0.5rem;margin-left:0.5rem">
