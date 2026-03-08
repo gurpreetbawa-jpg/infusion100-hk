@@ -382,16 +382,33 @@ router.post('/walks/:id/comments', isAuthenticated, async (req, res) => {
 });
 
 // --- Edit Walk ---
-router.put('/walks/:id', isAuthenticated, async (req, res) => {
+router.put('/walks/:id', isAuthenticated, uploadWalk.single('image'), async (req, res) => {
   try {
     const { date, distance_km, duration_mins, caption, description } = req.body;
     if (date && new Date(date) > new Date()) {
       return res.status(400).json({ error: 'Date cannot be in the future' });
     }
+
+    let imagePath = undefined;
+    if (req.file) {
+      imagePath = await compressImage(req.file.path);
+    }
+
+    const fields = ['date = $1', 'distance_km = $2', 'duration_mins = $3', 'caption = $4', 'description = $5'];
+    const values = [date, distance_km, duration_mins || null, caption, description || null];
+
+    if (imagePath !== undefined) {
+      values.push(imagePath);
+      fields.push(`image_path = $${values.length}`);
+    }
+
+    values.push(req.params.id, req.user.id);
+    const idIdx = values.length - 1;
+
     const result = await db.query(
-      `UPDATE walks SET date = $1, distance_km = $2, duration_mins = $3, caption = $4, description = $5
-       WHERE id = $6 AND participant_id = $7 RETURNING *`,
-      [date, distance_km, duration_mins || null, caption, description || null, req.params.id, req.user.id]
+      `UPDATE walks SET ${fields.join(', ')}
+       WHERE id = $${idIdx} AND participant_id = $${idIdx + 1} RETURNING *`,
+      values
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Walk not found' });
@@ -511,8 +528,9 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
         );
         if (exists.rows.length > 0) continue;
 
-        // Fetch detailed activity to get description
+        // Fetch detailed activity to get description and photos
         let description = null;
+        let imagePath = null;
         try {
           const detailRes = await fetch(
             `https://www.strava.com/api/v3/activities/${activity.id}`,
@@ -521,14 +539,31 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
           if (detailRes.ok) {
             const detail = await detailRes.json();
             description = detail.description || null;
+
+            // Download primary photo if available
+            const photoUrl = detail.photos?.primary?.urls?.['600'];
+            if (photoUrl) {
+              try {
+                const photoRes = await fetch(photoUrl);
+                if (photoRes.ok) {
+                  const buffer = Buffer.from(await photoRes.arrayBuffer());
+                  const tmpPath = path.join('uploads', `strava-${activity.id}-${Date.now()}`);
+                  fs.writeFileSync(tmpPath, buffer);
+                  imagePath = await compressImage(tmpPath);
+                  console.log(`[STRAVA] Downloaded photo for activity ${activity.id}`);
+                }
+              } catch (photoErr) {
+                console.log(`[STRAVA] Could not download photo for activity ${activity.id}: ${photoErr.message}`);
+              }
+            }
           }
         } catch (err) {
           console.log(`[STRAVA] Could not fetch detail for activity ${activity.id}: ${err.message}`);
         }
 
         await db.query(
-          `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, description, polyline, strava_id, activity_type)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, description, polyline, strava_id, activity_type, image_path)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             req.user.id,
             activity.start_date_local.split('T')[0],
@@ -539,6 +574,7 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
             activity.map?.summary_polyline || null,
             activity.id,
             actType,
+            imagePath,
           ]
         );
         imported++;
