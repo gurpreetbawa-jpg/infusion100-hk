@@ -141,7 +141,7 @@ router.post('/api/notifications/send', async (req, res) => {
     const webpush = req.app.locals.webpush;
     if (!webpush) return res.status(500).json({ error: 'Push not configured' });
 
-    const { title, body, participant_id } = req.body;
+    const { title, body, url, participant_id } = req.body;
     if (!title || !body) return res.status(400).json({ error: 'Title and body required' });
 
     let query = 'SELECT * FROM push_subscriptions';
@@ -152,7 +152,7 @@ router.post('/api/notifications/send', async (req, res) => {
     }
 
     const subs = await db.query(query, params);
-    const payload = JSON.stringify({ title, body });
+    const payload = JSON.stringify({ title, body, ...(url && { url }) });
 
     let sent = 0;
     let failed = 0;

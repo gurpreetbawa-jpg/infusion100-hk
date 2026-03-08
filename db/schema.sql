@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS participants (
   role          VARCHAR(20) DEFAULT 'participant',
   profile_complete BOOLEAN DEFAULT FALSE,
   gdpr_consent  BOOLEAN DEFAULT FALSE,
+  last_engagement_notified_at TIMESTAMPTZ DEFAULT NOW(),
   registered_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -62,6 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_walks_date ON walks(date);
 CREATE TABLE IF NOT EXISTS walk_likes (
   walk_id       INT REFERENCES walks(id) ON DELETE CASCADE,
   participant_id INT REFERENCES participants(id) ON DELETE CASCADE,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (walk_id, participant_id)
 );
 

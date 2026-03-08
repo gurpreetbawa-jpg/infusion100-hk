@@ -9,6 +9,7 @@ const path = require('path');
 const { pool } = require('./db');
 const passport = require('./config/passport');
 const webpush = require('web-push');
+const { runEngagementNotifications } = require('./jobs/engagement-notifications');
 
 // Fail fast if critical secrets are missing
 if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 16) {
@@ -166,4 +167,12 @@ app.listen(PORT, async () => {
   console.log(`    GitHub:     ${process.env.GITHUB_CLIENT_ID ? 'configured' : 'not configured'}`);
   console.log(`    Strava:     ${process.env.STRAVA_CLIENT_ID ? 'configured' : 'not configured'}`);
   console.log('');
+
+  // Engagement notification scheduler (every 2 hours)
+  if (app.locals.webpush) {
+    setTimeout(() => runEngagementNotifications(app.locals.webpush), 30 * 1000);
+    setInterval(() => runEngagementNotifications(app.locals.webpush), 2 * 60 * 60 * 1000);
+    console.log('  Engagement notifications: scheduled (every 2h)');
+    console.log('');
+  }
 });

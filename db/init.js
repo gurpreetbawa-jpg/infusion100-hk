@@ -57,6 +57,8 @@ async function run() {
       keys_auth TEXT NOT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`,
+    `ALTER TABLE walk_likes ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
+    `ALTER TABLE participants ADD COLUMN IF NOT EXISTS last_engagement_notified_at TIMESTAMPTZ DEFAULT NOW()`,
   ];
   for (const sql of migrations) {
     await pool.query(sql).catch(() => {});
