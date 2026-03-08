@@ -35,11 +35,13 @@ async function run() {
     `);
   }
 
-  console.log('Applying schema...');
+  console.log('[DB INIT] Applying schema...');
   await pool.query(schema);
+  console.log('[DB INIT] Schema applied');
 
-  console.log('Seeding bridges...');
+  console.log('[DB INIT] Seeding bridges...');
   await pool.query(seed);
+  console.log('[DB INIT] Bridges seeded');
 
   // Add any missing columns to existing tables
   const migrations = [
@@ -63,11 +65,20 @@ async function run() {
     // Copy caption into description for walks that don't have one yet
     `UPDATE walks SET description = caption WHERE caption IS NOT NULL AND description IS NULL`,
   ];
-  for (const sql of migrations) {
-    await pool.query(sql).catch(() => {});
+  console.log(`[DB INIT] Running ${migrations.length} migrations...`);
+  for (let i = 0; i < migrations.length; i++) {
+    const sql = migrations[i];
+    const preview = sql.replace(/\s+/g, ' ').trim().substring(0, 80);
+    try {
+      const result = await pool.query(sql);
+      console.log(`[DB INIT]   [${i + 1}/${migrations.length}] OK (${result.rowCount ?? 0} rows): ${preview}...`);
+    } catch (err) {
+      console.error(`[DB INIT]   [${i + 1}/${migrations.length}] FAILED: ${preview}...`);
+      console.error(`[DB INIT]     Error: ${err.message}`);
+    }
   }
 
-  console.log(reset ? 'Database reset complete.' : 'Database initialized.');
+  console.log(`[DB INIT] ${reset ? 'Database reset complete.' : 'Database initialized.'}`);
   await pool.end();
 }
 
