@@ -47,10 +47,16 @@ async function runEngagementNotifications(webpush) {
       entry.totalComments += parseInt(row.comment_count);
     }
 
-    if (owners.size === 0) return;
+    console.log(`[ENGAGEMENT] Running: found ${likesResult.rows.length} like entries, ${commentsResult.rows.length} comment entries across ${owners.size} user(s)`);
+
+    if (owners.size === 0) {
+      console.log('[ENGAGEMENT] No new engagement to notify');
+      return;
+    }
 
     let totalSent = 0;
     let totalFailed = 0;
+    let totalExpired = 0;
     const processedOwnerIds = [];
 
     for (const [ownerId, data] of owners) {
@@ -82,6 +88,8 @@ async function runEngagementNotifications(webpush) {
         [ownerId]
       );
 
+      console.log(`[ENGAGEMENT] User ${ownerId}: ${totalLikes} like(s), ${totalComments} comment(s) on ${walkCount} ${walkWord} → ${subs.rows.length} subscription(s)`);
+
       for (const sub of subs.rows) {
         const pushSub = {
           endpoint: sub.endpoint,
@@ -94,6 +102,10 @@ async function runEngagementNotifications(webpush) {
           totalFailed++;
           if (err.statusCode === 410 || err.statusCode === 404) {
             await db.query('DELETE FROM push_subscriptions WHERE id = $1', [sub.id]);
+            totalExpired++;
+            console.log(`[ENGAGEMENT] Removed expired subscription ${sub.id} for user ${ownerId}`);
+          } else {
+            console.error(`[ENGAGEMENT] Push failed for user ${ownerId}: ${err.statusCode || err.message}`);
           }
         }
       }
@@ -109,9 +121,7 @@ async function runEngagementNotifications(webpush) {
       );
     }
 
-    if (totalSent > 0 || totalFailed > 0) {
-      console.log(`[ENGAGEMENT] Notified ${processedOwnerIds.length} users (sent ${totalSent}, failed ${totalFailed})`);
-    }
+    console.log(`[ENGAGEMENT] Done: ${processedOwnerIds.length} user(s) notified, ${totalSent} sent, ${totalFailed} failed${totalExpired ? `, ${totalExpired} expired removed` : ''}`);
   } catch (err) {
     console.error('[ENGAGEMENT] Job failed:', err.message);
   }
