@@ -93,7 +93,14 @@
               <span>${App.formatDuration(walk.duration_mins)}</span>
             </div>
 
-            ${walk.polyline ? `<div id="walkMap" class="walk-card-map"></div>` : ''}
+            ${walk.polyline ? `<div id="walkMap" class="walk-card-map" style="cursor:pointer;position:relative" onclick="openFullMap()">
+              <div style="position:absolute;top:8px;right:8px;z-index:400;background:rgba(255,255,255,0.85);border-radius:4px;padding:2px 6px;font-size:1rem;line-height:1;pointer-events:none">&#x26F6;</div>
+            </div>` : ''}
+
+            <div id="mapOverlay" class="map-overlay hidden" onclick="closeFullMap(event)">
+              <button class="map-overlay-close" onclick="closeFullMap()">&times;</button>
+              <div id="fullMap" class="map-overlay-map"></div>
+            </div>
 
             <div class="walk-card-actions">
               <button onclick="toggleLike()" id="likeBtn" class="${walk.user_liked ? 'liked' : ''}">
@@ -118,7 +125,8 @@
 
         // Decode polyline and show map
         if (walk.polyline) {
-          const map = L.map('walkMap');
+          window._polylineData = walk.polyline;
+          const map = L.map('walkMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, touchZoom: false, doubleClickZoom: false });
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap'
           }).addTo(map);
@@ -212,6 +220,32 @@
       } catch (err) {
         alert('Failed to delete: ' + err.message);
       }
+    }
+
+    let _fullMap = null;
+
+    function openFullMap() {
+      if (!window._polylineData) return;
+      const overlay = document.getElementById('mapOverlay');
+      overlay.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+
+      setTimeout(() => {
+        _fullMap = L.map('fullMap');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(_fullMap);
+        const coords = decodePolyline(window._polylineData);
+        const line = L.polyline(coords, { color: '#FC4C02', weight: 3 }).addTo(_fullMap);
+        _fullMap.fitBounds(line.getBounds(), { padding: [30, 30] });
+      }, 50);
+    }
+
+    function closeFullMap(e) {
+      if (e && e.target !== e.currentTarget && !e.target.classList.contains('map-overlay-close')) return;
+      document.getElementById('mapOverlay').classList.add('hidden');
+      document.body.style.overflow = '';
+      if (_fullMap) { _fullMap.remove(); _fullMap = null; }
     }
 
     // Decode Google polyline encoding
