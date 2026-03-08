@@ -205,7 +205,7 @@
         ['Emergency Contact', `${user.emergency_contact_name} (${user.emergency_contact_phone})`],
       ];
       document.getElementById('profileTable').innerHTML = rows
-        .map(([k, v]) => `<tr><td style="font-weight:600;width:160px;color:var(--text-muted)">${k}</td><td>${v || '--'}</td></tr>`)
+        .map(([k, v]) => `<tr><td style="font-weight:600;width:160px;color:var(--text-muted)">${App.escapeHtml(k)}</td><td>${App.escapeHtml(v || '--')}</td></tr>`)
         .join('');
     }
 

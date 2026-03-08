@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const passport = require('passport');
 const router = express.Router();
 
@@ -40,9 +41,12 @@ router.get('/strava', (req, res) => {
   }
   const clientId = process.env.STRAVA_CLIENT_ID;
   const callbackUrl = process.env.STRAVA_CALLBACK_URL;
-  const scope = req.isAuthenticated() ? 'read,activity:read' : 'read,activity:read';
-  const state = req.isAuthenticated() ? 'link' : 'login';
-  const url = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(callbackUrl)}&scope=${scope}&approval_prompt=auto&state=${state}`;
+  const scope = 'read,activity:read';
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const action = req.isAuthenticated() ? 'link' : 'login';
+  const state = `${action}:${nonce}`;
+  req.session.stravaOAuthState = state;
+  const url = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(callbackUrl)}&scope=${scope}&approval_prompt=auto&state=${encodeURIComponent(state)}`;
   res.redirect(url);
 });
 
@@ -51,6 +55,12 @@ router.get('/callback/strava', async (req, res) => {
   if (!code) {
     return res.redirect(req.isAuthenticated() ? '/dashboard?error=strava_denied' : '/login?error=strava_denied');
   }
+
+  // Validate CSRF state
+  if (!state || state !== req.session.stravaOAuthState) {
+    return res.redirect('/login?error=invalid_state');
+  }
+  delete req.session.stravaOAuthState;
 
   try {
     const { encrypt } = require('../config/encryption');
@@ -73,7 +83,7 @@ router.get('/callback/strava', async (req, res) => {
     }
 
     // Linking to existing account
-    if (state === 'link' && req.isAuthenticated()) {
+    if (state.startsWith('link:') && req.isAuthenticated()) {
       await db.query(
         `UPDATE participants SET strava_token = $1, strava_refresh_token = $2,
          strava_token_expires_at = $3, strava_athlete_id = $4 WHERE id = $5`,
