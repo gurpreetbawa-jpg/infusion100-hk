@@ -64,6 +64,8 @@ async function run() {
     `ALTER TABLE participants ADD COLUMN IF NOT EXISTS last_engagement_notified_at TIMESTAMPTZ DEFAULT NOW()`,
     // Copy caption into description for walks that don't have one yet
     `UPDATE walks SET description = caption WHERE caption IS NOT NULL AND description IS NULL`,
+    // Clear description where it's just a duplicate of caption
+    `UPDATE walks SET description = NULL WHERE caption = description`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {

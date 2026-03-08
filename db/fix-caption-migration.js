@@ -52,6 +52,12 @@ async function run() {
   );
   console.log(`[FIX-MIGRATION] Step 2: Copied caption to description for ${copy.rowCount} walk(s)`);
 
+  // Step 3: Clear description where it's just a duplicate of caption
+  const dedup = await pool.query(
+    `UPDATE walks SET description = NULL WHERE caption = description`
+  );
+  console.log(`[FIX-MIGRATION] Step 3: Cleared duplicate description for ${dedup.rowCount} walk(s)`);
+
   // Verify final state
   const after = await pool.query(`
     SELECT
