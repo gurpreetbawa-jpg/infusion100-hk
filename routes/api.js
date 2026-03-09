@@ -127,7 +127,7 @@ router.get('/community-stats', async (req, res) => {
   try {
     const result = await db.query(`
       SELECT
-        (SELECT COUNT(*) FROM participants WHERE profile_complete = TRUE) AS walkers,
+        (SELECT COUNT(*) FROM participants WHERE profile_complete = TRUE AND walking_on_day = TRUE) AS walkers,
         COUNT(*) AS activities,
         COALESCE(SUM(distance_km), 0) AS total_km
       FROM walks
@@ -766,6 +766,37 @@ router.get('/follows', isAuthenticated, async (req, res) => {
   } catch (err) {
     console.error('Get follows error:', err);
     res.status(500).json({ error: 'Failed to fetch follows' });
+  }
+});
+
+// --- Participants Directory ---
+router.get('/participants', isAuthenticated, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT p.id, p.full_name, p.avatar_url
+       FROM participants p
+       WHERE p.profile_complete = TRUE AND p.walking_on_day = TRUE
+       ORDER BY p.full_name`
+    );
+
+    const [followingRes, followersRes] = await Promise.all([
+      db.query('SELECT following_id FROM participant_follows WHERE follower_id = $1', [req.user.id]),
+      db.query('SELECT follower_id FROM participant_follows WHERE following_id = $1', [req.user.id]),
+    ]);
+
+    const followingSet = new Set(followingRes.rows.map(r => r.following_id));
+    const followerSet = new Set(followersRes.rows.map(r => r.follower_id));
+
+    const participants = result.rows.map(p => ({
+      ...p,
+      user_following: followingSet.has(p.id),
+      user_follows_you: followerSet.has(p.id),
+    }));
+
+    res.json({ participants });
+  } catch (err) {
+    console.error('Participants list error:', err);
+    res.status(500).json({ error: 'Failed to fetch participants' });
   }
 });
 

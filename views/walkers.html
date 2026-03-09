@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Walkers - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1A1F36">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links" id="navLinks"></ul>
+  </nav>
+
+  <div class="container container-md">
+    <div class="page-header">
+      <h1>Walkers</h1>
+      <a href="/community" class="btn btn-outline btn-sm">Community Feed</a>
+    </div>
+
+    <div class="flex" style="gap:0.5rem;margin-bottom:1rem">
+      <button class="btn btn-sm btn-primary" id="tabAll" onclick="setFilter('all')">All</button>
+      <button class="btn btn-sm btn-outline" id="tabFollowing" onclick="setFilter('following')">Following</button>
+      <button class="btn btn-sm btn-outline" id="tabFollowers" onclick="setFilter('followers')">Followers</button>
+    </div>
+
+    <div id="walkerCount" class="text-muted" style="font-size:0.85rem;margin-bottom:0.75rem"></div>
+
+    <div id="walkerList">
+      <div class="loading-overlay"><span class="spinner"></span> Loading...</div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let allParticipants = [];
+    let currentUser = null;
+    let activeFilter = 'all';
+
+    async function init() {
+      currentUser = await App.loadUser();
+      try {
+        const data = await App.fetchJSON('/api/participants');
+        allParticipants = data.participants;
+      } catch {
+        document.getElementById('walkerList').innerHTML = '<div class="alert alert-danger">Failed to load walkers.</div>';
+        return;
+      }
+      renderWalkers();
+    }
+
+    function setFilter(filter) {
+      activeFilter = filter;
+      ['All', 'Following', 'Followers'].forEach(t => {
+        const btn = document.getElementById('tab' + t);
+        btn.className = 'btn btn-sm ' + (t.toLowerCase() === filter ? 'btn-primary' : 'btn-outline');
+      });
+      renderWalkers();
+    }
+
+    function renderWalkers() {
+      let list = allParticipants;
+      if (activeFilter === 'following') {
+        list = list.filter(p => p.user_following);
+      } else if (activeFilter === 'followers') {
+        list = list.filter(p => p.user_follows_you);
+      }
+
+      document.getElementById('walkerCount').textContent = `${list.length} walker${list.length !== 1 ? 's' : ''}`;
+
+      if (list.length === 0) {
+        const msg = activeFilter === 'following' ? "You're not following anyone yet."
+          : activeFilter === 'followers' ? "No one is following you yet."
+          : "No registered walkers yet.";
+        document.getElementById('walkerList').innerHTML = `<p class="text-muted text-center mt-3">${msg}</p>`;
+        return;
+      }
+
+      document.getElementById('walkerList').innerHTML = list.map(p => `
+        <div class="walk-card" style="padding:0.75rem 1rem">
+          <div class="walk-card-header" style="margin-bottom:0">
+            ${App.renderAvatar(p)}
+            <div class="walk-card-meta">
+              <div class="walk-card-name">${App.escapeHtml(p.full_name)}</div>
+            </div>
+            ${currentUser && currentUser.id !== p.id ? `<button class="btn-follow${p.user_following ? ' following' : ''}" data-follow-id="${p.id}" onclick="toggleFollow(${p.id}, this)">${p.user_following ? 'Following' : 'Follow'}</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function toggleFollow(participantId, btn) {
+      if (!currentUser) return window.location.href = '/login';
+      try {
+        const result = await App.fetchJSON(`/api/follows/${participantId}`, { method: 'POST' });
+        const p = allParticipants.find(p => p.id === participantId);
+        if (p) p.user_following = result.following;
+        document.querySelectorAll(`[data-follow-id="${participantId}"]`).forEach(b => {
+          b.className = 'btn-follow' + (result.following ? ' following' : '');
+          b.textContent = result.following ? 'Following' : 'Follow';
+        });
+        if (activeFilter !== 'all') renderWalkers();
+      } catch {}
+    }
+
+    init();
+  </script>
+</body>
+</html>

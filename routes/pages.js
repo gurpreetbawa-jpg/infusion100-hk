@@ -26,6 +26,7 @@ router.get('/walk/log', isAuthenticated, isProfileComplete, sendPage('log-walk.h
 router.get('/walk/:id', sendPage('walk-detail.html'));
 router.get('/community', sendPage('community.html'));
 router.get('/stats', isAuthenticated, isProfileComplete, sendPage('stats.html'));
+router.get('/walkers', isAuthenticated, isProfileComplete, sendPage('walkers.html'));
 router.get('/event', ...gated('EVENT_DAY_TRACKING', isAuthenticated, isProfileComplete), sendPage('event.html'));
 
 // Admin pages
