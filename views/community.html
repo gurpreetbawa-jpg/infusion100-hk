@@ -76,6 +76,18 @@
         document.getElementById('statDistance').textContent = App.formatDistance(s.total_km);
       } catch {}
       loadWalks();
+
+      App.initPullToRefresh(async () => {
+        nextCursor = null;
+        document.getElementById('feed').innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Loading...</div>';
+        try {
+          const s = await App.fetchJSON('/api/community-stats');
+          document.getElementById('statWalkers').textContent = s.walkers;
+          document.getElementById('statActivities').textContent = s.activities;
+          document.getElementById('statDistance').textContent = App.formatDistance(s.total_km);
+        } catch {}
+        await loadWalks();
+      });
     }
 
     function toggleSort() {

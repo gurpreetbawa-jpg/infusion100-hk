@@ -53,6 +53,14 @@
         return;
       }
       renderWalkers();
+
+      App.initPullToRefresh(async () => {
+        try {
+          const data = await App.fetchJSON('/api/participants');
+          allParticipants = data.participants;
+        } catch {}
+        renderWalkers();
+      });
     }
 
     function setFilter(filter) {

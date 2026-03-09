@@ -697,6 +697,26 @@ tr:hover td { background: var(--surface-alt); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.ptr-indicator {
+  position: fixed;
+  top: -40px;
+  left: 50%;
+  margin-left: -20px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.ptr-indicator.refreshing {
+  transform: translateY(80px) !important;
+  opacity: 1 !important;
+  transition: none;
+}
+
 .loading-overlay {
   display: flex;
   align-items: center;
