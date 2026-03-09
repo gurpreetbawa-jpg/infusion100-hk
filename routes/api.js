@@ -89,6 +89,10 @@ router.put('/me', isAuthenticated, async (req, res) => {
     const { full_name, phone, emergency_contact_name, emergency_contact_phone,
             walking_on_day, gdpr_consent } = req.body;
 
+    if (walking_on_day && (!emergency_contact_name?.trim() || !emergency_contact_phone?.trim())) {
+      return res.status(400).json({ error: 'Emergency contact details are required for event day walkers' });
+    }
+
     const result = await db.query(
       `UPDATE participants SET full_name = $1, phone = $2, emergency_contact_name = $3,
        emergency_contact_phone = $4, walking_on_day = $5, gdpr_consent = $6, profile_complete = TRUE WHERE id = $7 RETURNING *`,
