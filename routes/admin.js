@@ -53,13 +53,13 @@ router.get('/api/participants/export', async (req, res) => {
   try {
     const result = await db.query(
       `SELECT full_name, email, phone, emergency_contact_name, emergency_contact_phone,
-       registered_at,
+       walking_on_day, registered_at,
        CASE WHEN strava_token IS NOT NULL THEN 'Yes' ELSE 'No' END as strava_connected
        FROM participants ORDER BY registered_at DESC`
     );
 
     const headers = ['Full Name', 'Email', 'Phone', 'Emergency Contact', 'Emergency Phone',
-                     'Registered', 'Strava'];
+                     'Walking on Day', 'Registered', 'Strava'];
     const csvRows = [headers.join(',')];
 
     for (const row of result.rows) {
@@ -69,6 +69,7 @@ router.get('/api/participants/export', async (req, res) => {
         `"${row.phone || ''}"`,
         `"${(row.emergency_contact_name || '').replace(/"/g, '""')}"`,
         `"${row.emergency_contact_phone || ''}"`,
+        row.walking_on_day ? 'Yes' : 'No',
         `"${row.registered_at}"`,
         row.strava_connected,
       ].join(','));
@@ -85,13 +86,13 @@ router.get('/api/participants/export', async (req, res) => {
 router.put('/api/participants/:id', async (req, res) => {
   try {
     const { full_name, phone, emergency_contact_name, emergency_contact_phone,
-            role } = req.body;
+            walking_on_day, role } = req.body;
 
     const result = await db.query(
       `UPDATE participants SET full_name = $1, phone = $2, emergency_contact_name = $3,
-       emergency_contact_phone = $4, role = $5 WHERE id = $6 RETURNING *`,
+       emergency_contact_phone = $4, walking_on_day = $5, role = $6 WHERE id = $7 RETURNING *`,
       [full_name, phone, emergency_contact_name, emergency_contact_phone,
-       role, req.params.id]
+       walking_on_day ?? false, role, req.params.id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Participant not found' });

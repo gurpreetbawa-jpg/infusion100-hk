@@ -40,13 +40,14 @@
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
+              <th>Walking</th>
               <th>Strava</th>
               <th>Registered</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="participantsBody">
-            <tr><td colspan="6" class="text-center text-muted" style="padding:2rem">Loading...</td></tr>
+            <tr><td colspan="7" class="text-center text-muted" style="padding:2rem">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -83,6 +84,10 @@
           <label>Emergency Phone</label>
           <input type="tel" id="editEcPhone" class="form-control">
         </div>
+        <div class="form-check">
+          <input type="checkbox" id="editWalkingOnDay">
+          <label for="editWalkingOnDay" style="font-weight:400; font-size:0.875rem">Walking on event day</label>
+        </div>
         <div class="form-group">
           <label>Role</label>
           <select id="editRole" class="form-control">
@@ -114,7 +119,7 @@
       const body = document.getElementById('participantsBody');
 
       if (data.participants.length === 0) {
-        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:2rem">No participants found.</td></tr>';
+        body.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:2rem">No participants found.</td></tr>';
         document.getElementById('pagination').innerHTML = '';
         return;
       }
@@ -128,6 +133,7 @@
           <td><strong>${App.escapeHtml(p.full_name || '--')}</strong></td>
           <td>${App.escapeHtml(p.email)}</td>
           <td>${App.escapeHtml(p.phone || '--')}</td>
+          <td>${p.walking_on_day ? '<span class="badge badge-success">Yes</span>' : 'No'}</td>
           <td>${p.strava_connected ? '<span class="badge badge-strava">Yes</span>' : 'No'}</td>
           <td>${App.formatDate(p.registered_at)}</td>
           <td><button class="btn btn-outline btn-sm participant-edit-btn" data-idx="${i}">Edit</button></td>
@@ -147,6 +153,7 @@
           </div>
           <div style="display:flex; flex-wrap:wrap; gap:0.5rem 1.5rem; margin-top:0.75rem; font-size:0.8125rem; color:var(--text-muted)">
             ${p.phone ? `<span>Phone: ${App.escapeHtml(p.phone)}</span>` : ''}
+            ${p.walking_on_day ? '<span class="badge badge-success">Walking</span>' : ''}
             ${p.strava_connected ? '<span class="badge badge-strava">Strava</span>' : ''}
             <span>${App.formatDate(p.registered_at)}</span>
           </div>
@@ -192,6 +199,7 @@
       document.getElementById('editPhone').value = p.phone || '';
       document.getElementById('editEcName').value = p.emergency_contact_name || '';
       document.getElementById('editEcPhone').value = p.emergency_contact_phone || '';
+      document.getElementById('editWalkingOnDay').checked = !!p.walking_on_day;
       document.getElementById('editRole').value = p.role || 'participant';
       document.getElementById('editModal').classList.add('active');
     }
@@ -211,6 +219,7 @@
             phone: document.getElementById('editPhone').value,
             emergency_contact_name: document.getElementById('editEcName').value,
             emergency_contact_phone: document.getElementById('editEcPhone').value,
+            walking_on_day: document.getElementById('editWalkingOnDay').checked,
             role: document.getElementById('editRole').value,
           }),
         });

@@ -67,6 +67,7 @@ async function run() {
     // Clear description where it's just a duplicate of caption
     `UPDATE walks SET description = NULL WHERE caption = description`,
     `ALTER TABLE walks ALTER COLUMN date TYPE TIMESTAMPTZ USING date::timestamptz`,
+    `ALTER TABLE participants ADD COLUMN IF NOT EXISTS walking_on_day BOOLEAN DEFAULT FALSE`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {

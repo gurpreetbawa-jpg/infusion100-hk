@@ -88,6 +88,10 @@
           <label>Emergency Phone</label>
           <input type="tel" id="edit_ec_phone" class="form-control">
         </div>
+        <div class="form-check">
+          <input type="checkbox" id="edit_walking_on_day">
+          <label for="edit_walking_on_day" style="font-weight:400; font-size:0.875rem">Walking on event day (16th May 2026)</label>
+        </div>
         <div class="flex gap-1">
           <button type="submit" class="btn btn-primary">Save Changes</button>
           <button type="button" class="btn btn-outline" onclick="toggleEdit()">Cancel</button>
@@ -189,6 +193,7 @@
               phone: document.getElementById('edit_phone').value,
               emergency_contact_name: document.getElementById('edit_ec_name').value,
               emergency_contact_phone: document.getElementById('edit_ec_phone').value,
+              walking_on_day: document.getElementById('edit_walking_on_day').checked,
               gdpr_consent: user.gdpr_consent,
             }),
           });
@@ -207,6 +212,7 @@
         ['Email', user.email],
         ['Phone', user.phone],
         ['Emergency Contact', `${user.emergency_contact_name} (${user.emergency_contact_phone})`],
+        ['Walking on Day', user.walking_on_day ? 'Yes' : 'No'],
       ];
       document.getElementById('profileTable').innerHTML = rows
         .map(([k, v]) => `<tr><td style="font-weight:600;width:160px;color:var(--text-muted)">${App.escapeHtml(k)}</td><td>${App.escapeHtml(v || '--')}</td></tr>`)
@@ -224,6 +230,7 @@
         document.getElementById('edit_phone').value = user.phone || '';
         document.getElementById('edit_ec_name').value = user.emergency_contact_name || '';
         document.getElementById('edit_ec_phone').value = user.emergency_contact_phone || '';
+        document.getElementById('edit_walking_on_day').checked = !!user.walking_on_day;
       }
     }
 

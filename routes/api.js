@@ -87,13 +87,13 @@ router.get('/me', isAuthenticated, (req, res) => {
 router.put('/me', isAuthenticated, async (req, res) => {
   try {
     const { full_name, phone, emergency_contact_name, emergency_contact_phone,
-            gdpr_consent } = req.body;
+            walking_on_day, gdpr_consent } = req.body;
 
     const result = await db.query(
       `UPDATE participants SET full_name = $1, phone = $2, emergency_contact_name = $3,
-       emergency_contact_phone = $4, gdpr_consent = $5, profile_complete = TRUE WHERE id = $6 RETURNING *`,
+       emergency_contact_phone = $4, walking_on_day = $5, gdpr_consent = $6, profile_complete = TRUE WHERE id = $7 RETURNING *`,
       [full_name, phone, emergency_contact_name, emergency_contact_phone,
-       gdpr_consent, req.user.id]
+       walking_on_day ?? false, gdpr_consent, req.user.id]
     );
     console.log(`[PROFILE] Updated: ${full_name} (id:${req.user.id})`);
     res.json(result.rows[0]);

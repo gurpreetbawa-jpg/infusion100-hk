@@ -50,6 +50,13 @@
         </div>
 
         <div class="form-check">
+          <input type="checkbox" id="walking_on_day">
+          <label for="walking_on_day" style="font-weight:400; font-size:0.875rem">
+            I plan to walk on event day (16th May 2026)
+          </label>
+        </div>
+
+        <div class="form-check">
           <input type="checkbox" id="gdpr_consent" required>
           <label for="gdpr_consent" style="font-weight:400; font-size:0.875rem">
             I consent to Infusion100 storing my data for the purposes of organising this charity event.
@@ -88,6 +95,7 @@
               phone: document.getElementById('phone').value,
               emergency_contact_name: document.getElementById('emergency_contact_name').value,
               emergency_contact_phone: document.getElementById('emergency_contact_phone').value,
+              walking_on_day: document.getElementById('walking_on_day').checked,
               gdpr_consent: document.getElementById('gdpr_consent').checked,
             }),
           });
