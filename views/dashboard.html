@@ -177,21 +177,6 @@
       // Recent walks
       loadRecentWalks();
 
-      // Pull to refresh
-      App.initPullToRefresh(async () => {
-        const [stats, pc] = await Promise.all([
-          App.fetchJSON('/api/stats').catch(() => null),
-          App.fetchJSON('/api/participant-count').catch(() => null),
-        ]);
-        if (stats) {
-          document.getElementById('totalDistance').textContent = App.formatDistance(stats.total_distance);
-          document.getElementById('totalWalks').textContent = stats.total_walks;
-          document.getElementById('longestWalk').textContent = App.formatDistance(stats.longest_walk);
-        }
-        if (pc) document.getElementById('walkersCount').textContent = pc.walkers;
-        await loadRecentWalks();
-      });
-
       // Check URL params
       const params = new URLSearchParams(window.location.search);
       if (params.get('strava') === 'connected') {

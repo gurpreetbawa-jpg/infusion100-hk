@@ -235,49 +235,6 @@ if ('serviceWorker' in navigator) {
   }
 })();
 
-// Pull-to-refresh for PWA standalone mode
-App.initPullToRefresh = function (callback) {
-  let startY = 0;
-  let pulling = false;
-  const threshold = 80;
-
-  // Create indicator element
-  const indicator = document.createElement('div');
-  indicator.className = 'ptr-indicator';
-  indicator.innerHTML = '<span class="spinner"></span>';
-  document.body.prepend(indicator);
-
-  document.addEventListener('touchstart', (e) => {
-    if (window.scrollY === 0) {
-      startY = e.touches[0].clientY;
-      pulling = true;
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchmove', (e) => {
-    if (!pulling) return;
-    const dy = e.touches[0].clientY - startY;
-    if (dy > 0 && window.scrollY === 0) {
-      const dist = Math.min(dy * 0.4, threshold);
-      indicator.style.transform = `translateY(${dist}px)`;
-      indicator.style.opacity = Math.min(dist / threshold, 1);
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchend', async () => {
-    if (!pulling) return;
-    pulling = false;
-    const opacity = parseFloat(indicator.style.opacity) || 0;
-    if (opacity >= 1) {
-      indicator.classList.add('refreshing');
-      try { await callback(); } catch {}
-      indicator.classList.remove('refreshing');
-    }
-    indicator.style.transform = '';
-    indicator.style.opacity = 0;
-  });
-};
-
 // Mobile nav toggle
 document.addEventListener('DOMContentLoaded', () => {
   const toggle = document.querySelector('.navbar-toggle');
