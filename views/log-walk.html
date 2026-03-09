@@ -27,7 +27,10 @@
       <form id="walkForm">
         <div class="form-group">
           <label for="date">Date *</label>
-          <input type="date" id="date" class="form-control" required>
+          <div class="flex gap-1">
+            <input type="date" id="date" class="form-control" required style="flex:1">
+            <input type="time" id="time" class="form-control" style="flex:1">
+          </div>
         </div>
 
         <div class="form-group">
@@ -86,9 +89,11 @@
     let unit = 'km';
     let gpxMap;
 
+    const now = new Date();
     const dateInput = document.getElementById('date');
-    dateInput.valueAsDate = new Date();
-    dateInput.max = new Date().toISOString().split('T')[0];
+    dateInput.valueAsDate = now;
+    dateInput.max = now.toISOString().split('T')[0];
+    document.getElementById('time').value = now.toTimeString().slice(0, 5);
 
     function setUnit(u) {
       unit = u;
@@ -160,8 +165,12 @@
         let distKm = parseFloat(document.getElementById('distance').value);
         if (unit === 'miles') distKm = distKm * 1.60934;
 
+        const dateVal = document.getElementById('date').value;
+        const timeVal = document.getElementById('time').value;
+        const fullDate = timeVal ? `${dateVal}T${timeVal}` : dateVal;
+
         const formData = new FormData();
-        formData.append('date', document.getElementById('date').value);
+        formData.append('date', fullDate);
         formData.append('distance_km', distKm.toFixed(2));
         formData.append('duration_mins', document.getElementById('duration').value || '');
         formData.append('caption', document.getElementById('caption').value);

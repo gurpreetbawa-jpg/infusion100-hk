@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS tracking_sessions (
 CREATE TABLE IF NOT EXISTS walks (
   id            SERIAL PRIMARY KEY,
   participant_id INT REFERENCES participants(id) ON DELETE CASCADE,
-  date          DATE,
+  date          TIMESTAMPTZ,
   distance_km   DECIMAL(8,2),
   duration_mins INT,
   caption       TEXT,

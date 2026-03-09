@@ -600,7 +600,7 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             req.user.id,
-            activity.start_date_local.split('T')[0],
+            activity.start_date_local,
             (activity.distance / 1000).toFixed(2),
             Math.round(activity.moving_time / 60),
             activity.name,

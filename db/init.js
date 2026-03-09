@@ -66,6 +66,7 @@ async function run() {
     `UPDATE walks SET description = caption WHERE caption IS NOT NULL AND description IS NULL`,
     // Clear description where it's just a duplicate of caption
     `UPDATE walks SET description = NULL WHERE caption = description`,
+    `ALTER TABLE walks ALTER COLUMN date TYPE TIMESTAMPTZ USING date::timestamptz`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {

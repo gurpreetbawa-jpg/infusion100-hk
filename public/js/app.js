@@ -52,6 +52,15 @@ const App = {
     });
   },
 
+  formatDateTime(dateStr) {
+    const d = new Date(dateStr);
+    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const h = d.getHours(), m = d.getMinutes();
+    if (h === 0 && m === 0) return date;
+    const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return `${date} at ${time}`;
+  },
+
   formatRelative(dateStr) {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
