@@ -15,7 +15,7 @@ router.get('/callback/google', passport.authenticate('google', {
   if (!req.user.profile_complete) {
     return res.redirect('/register');
   }
-  res.redirect('/dashboard');
+  res.redirect('/');
 });
 
 // GitHub OAuth
@@ -30,7 +30,7 @@ router.get('/callback/github', passport.authenticate('github', {
   if (!req.user.profile_complete) {
     return res.redirect('/register');
   }
-  res.redirect('/dashboard');
+  res.redirect('/');
 });
 
 // Strava OAuth (login + linking)
