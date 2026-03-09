@@ -69,6 +69,14 @@ CREATE TABLE IF NOT EXISTS walk_likes (
   PRIMARY KEY (walk_id, participant_id)
 );
 
+CREATE TABLE IF NOT EXISTS participant_follows (
+  follower_id   INT REFERENCES participants(id) ON DELETE CASCADE,
+  following_id  INT REFERENCES participants(id) ON DELETE CASCADE,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (follower_id, following_id),
+  CHECK (follower_id != following_id)
+);
+
 CREATE TABLE IF NOT EXISTS walk_comments (
   id            SERIAL PRIMARY KEY,
   walk_id       INT REFERENCES walks(id) ON DELETE CASCADE,

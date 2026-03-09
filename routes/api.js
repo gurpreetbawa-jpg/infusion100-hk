@@ -264,7 +264,7 @@ router.get('/walks', async (req, res) => {
 
     const result = await db.query(query, params);
 
-    // Check likes for current user
+    // Check likes and follows for current user
     if (req.user) {
       const walkIds = result.rows.map(w => w.id);
       if (walkIds.length > 0) {
@@ -274,6 +274,15 @@ router.get('/walks', async (req, res) => {
         );
         const likedSet = new Set(likes.rows.map(l => l.walk_id));
         result.rows.forEach(w => { w.user_liked = likedSet.has(w.id); });
+      }
+      const pIds = [...new Set(result.rows.map(w => w.participant_id))];
+      if (pIds.length) {
+        const follows = await db.query(
+          'SELECT following_id FROM participant_follows WHERE follower_id = $1 AND following_id = ANY($2)',
+          [req.user.id, pIds]
+        );
+        const followSet = new Set(follows.rows.map(f => f.following_id));
+        result.rows.forEach(w => { w.user_following = followSet.has(w.participant_id); });
       }
     }
 
@@ -354,6 +363,12 @@ router.get('/walks/:id', async (req, res) => {
         [walk.id, req.user.id]
       );
       walk.user_liked = liked.rows.length > 0;
+
+      const followed = await db.query(
+        'SELECT 1 FROM participant_follows WHERE follower_id = $1 AND following_id = $2',
+        [req.user.id, walk.participant_id]
+      );
+      walk.user_following = followed.rows.length > 0;
     }
 
     res.json(walk);
@@ -695,6 +710,53 @@ router.get('/push/status', isAuthenticated, async (req, res) => {
     res.json({ subscribed: parseInt(result.rows[0].count) > 0 });
   } catch (err) {
     res.status(500).json({ error: 'Failed to check subscription status' });
+  }
+});
+
+// --- Follows ---
+router.post('/follows/:participantId', isAuthenticated, async (req, res) => {
+  try {
+    const followingId = parseInt(req.params.participantId);
+    if (followingId === req.user.id) {
+      return res.status(400).json({ error: 'Cannot follow yourself' });
+    }
+    const existing = await db.query(
+      'SELECT 1 FROM participant_follows WHERE follower_id = $1 AND following_id = $2',
+      [req.user.id, followingId]
+    );
+    if (existing.rows.length > 0) {
+      await db.query(
+        'DELETE FROM participant_follows WHERE follower_id = $1 AND following_id = $2',
+        [req.user.id, followingId]
+      );
+      res.json({ following: false });
+    } else {
+      await db.query(
+        'INSERT INTO participant_follows (follower_id, following_id) VALUES ($1, $2)',
+        [req.user.id, followingId]
+      );
+      res.json({ following: true });
+    }
+  } catch (err) {
+    console.error('Follow toggle error:', err);
+    res.status(500).json({ error: 'Failed to toggle follow' });
+  }
+});
+
+router.get('/follows', isAuthenticated, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT p.id, p.full_name, p.avatar_url
+       FROM participant_follows pf
+       JOIN participants p ON p.id = pf.following_id
+       WHERE pf.follower_id = $1
+       ORDER BY pf.created_at DESC`,
+      [req.user.id]
+    );
+    res.json({ following: result.rows });
+  } catch (err) {
+    console.error('Get follows error:', err);
+    res.status(500).json({ error: 'Failed to fetch follows' });
   }
 });
 

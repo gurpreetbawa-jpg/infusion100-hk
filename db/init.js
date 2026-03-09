@@ -24,6 +24,7 @@ async function run() {
     console.log('Dropping all tables...');
     await pool.query(`
       DROP TABLE IF EXISTS walk_comments CASCADE;
+      DROP TABLE IF EXISTS participant_follows CASCADE;
       DROP TABLE IF EXISTS walk_likes CASCADE;
       DROP TABLE IF EXISTS walks CASCADE;
       DROP TABLE IF EXISTS location_pings CASCADE;
@@ -68,6 +69,13 @@ async function run() {
     `UPDATE walks SET description = NULL WHERE caption = description`,
     `ALTER TABLE walks ALTER COLUMN date TYPE TIMESTAMPTZ USING date::timestamptz`,
     `ALTER TABLE participants ADD COLUMN IF NOT EXISTS walking_on_day BOOLEAN DEFAULT FALSE`,
+    `CREATE TABLE IF NOT EXISTS participant_follows (
+      follower_id INT REFERENCES participants(id) ON DELETE CASCADE,
+      following_id INT REFERENCES participants(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (follower_id, following_id),
+      CHECK (follower_id != following_id)
+    )`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {

@@ -505,6 +505,50 @@ tr:hover td { background: var(--surface-alt); }
   opacity: 0.8;
 }
 
+/* --- Follow Button --- */
+.btn-follow {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+  margin-left: auto;
+}
+.btn-follow:hover { background: rgba(252,76,2,0.08); }
+.btn-follow.following { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-follow.following:hover { background: var(--danger); border-color: var(--danger); }
+
+/* --- Map Filter Bar --- */
+.map-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.filter-btn {
+  padding: 0.3rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.filter-btn:hover { border-color: var(--text-muted); }
+.filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
 /* --- Map --- */
 .map-container {
   width: 100%;

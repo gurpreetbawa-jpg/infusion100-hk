@@ -19,6 +19,11 @@
     <ul class="navbar-links" id="navLinks"></ul>
   </nav>
 
+  <div id="filterBar" class="map-filter-bar hidden">
+    <button class="filter-btn active" data-filter="everyone" onclick="setFilter('everyone')">Everyone</button>
+    <button class="filter-btn" data-filter="following" onclick="setFilter('following')">Following</button>
+  </div>
+
   <div id="trackingBanner" class="tracking-banner hidden">
     <span class="pulse"></span>
     <span id="bannerText">GPS tracking active</span>
@@ -83,10 +88,18 @@
     let watchId = null;
     let pingCount = 0;
     let map;
+    let followingIds = new Set();
+    let filterMode = 'everyone';
 
     async function init() {
       const user = await App.loadUser();
       if (!user) return window.location.href = '/login';
+
+      try {
+        const data = await App.fetchJSON('/api/follows');
+        followingIds = new Set(data.following.map(f => f.id));
+      } catch {}
+      document.getElementById('filterBar').classList.remove('hidden');
 
       // Init map
       map = L.map('eventMap').setView([51.48, -0.12], 11);
@@ -120,20 +133,33 @@
 
     const participantMarkers = {};
 
+    function setFilter(mode) {
+      filterMode = mode;
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.filter === mode);
+      });
+      refreshParticipants();
+    }
+
     async function refreshParticipants() {
       try {
         const participants = await App.fetchJSON('/api/locations/live');
         const user = App.user;
 
-        const activeIds = new Set(participants.map(p => p.id));
+        // Filter: always show self, plus everyone or just followed
+        const visible = filterMode === 'following'
+          ? participants.filter(p => (user && p.id === user.id) || followingIds.has(p.id))
+          : participants;
+        const visibleIds = new Set(visible.map(p => p.id));
+
         Object.keys(participantMarkers).forEach(id => {
-          if (!activeIds.has(parseInt(id))) {
+          if (!visibleIds.has(parseInt(id))) {
             map.removeLayer(participantMarkers[id]);
             delete participantMarkers[id];
           }
         });
 
-        participants.forEach(p => {
+        visible.forEach(p => {
           const isMe = user && p.id === user.id;
           const isActive = p.tracking_status === 'active';
           const color = isMe ? '#FC4C02' : (isActive ? '#10B981' : '#6B7280');

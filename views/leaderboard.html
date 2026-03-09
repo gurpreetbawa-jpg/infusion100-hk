@@ -19,6 +19,11 @@
     <ul class="navbar-links" id="navLinks"></ul>
   </nav>
 
+  <div id="filterBar" class="map-filter-bar hidden">
+    <button class="filter-btn active" data-filter="everyone" onclick="setFilter('everyone')">Everyone</button>
+    <button class="filter-btn" data-filter="following" onclick="setFilter('following')">Following</button>
+  </div>
+
   <div id="liveMap" class="map-container-full"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -31,10 +36,25 @@
 
     const markers = {};
     let bridgeMarkers = [];
+    let followingIds = new Set();
+    let filterMode = 'everyone';
+    let currentUser = null;
 
     async function init() {
       // Update nav
       const user = await App.loadUser();
+      currentUser = user;
+
+      if (user) {
+        try {
+          const data = await App.fetchJSON('/api/follows');
+          followingIds = new Set(data.following.map(f => f.id));
+        } catch {}
+        const bar = document.getElementById('filterBar');
+        bar.classList.remove('hidden');
+        document.getElementById('liveMap').style.height = `calc(100vh - 64px - ${bar.offsetHeight}px)`;
+        map.invalidateSize();
+      }
       // Load bridges
       const bridges = await App.fetchJSON('/api/bridges');
       bridges.forEach(b => {
@@ -56,20 +76,33 @@
       setInterval(refreshLocations, 30000);
     }
 
+    function setFilter(mode) {
+      filterMode = mode;
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.filter === mode);
+      });
+      refreshLocations();
+    }
+
     async function refreshLocations() {
       try {
         const participants = await App.fetchJSON('/api/locations/live');
 
-        // Clear old markers not in new data
-        const activeIds = new Set(participants.map(p => p.id));
+        // Determine visible set based on filter
+        const visible = filterMode === 'following'
+          ? participants.filter(p => followingIds.has(p.id))
+          : participants;
+        const visibleIds = new Set(visible.map(p => p.id));
+
+        // Remove markers not in visible set
         Object.keys(markers).forEach(id => {
-          if (!activeIds.has(parseInt(id))) {
+          if (!visibleIds.has(parseInt(id))) {
             map.removeLayer(markers[id]);
             delete markers[id];
           }
         });
 
-        participants.forEach(p => {
+        visible.forEach(p => {
           const isActive = p.tracking_status === 'active';
           const color = isActive ? '#10B981' : '#6B7280';
           const firstName = (p.full_name || 'Unknown').split(' ')[0];

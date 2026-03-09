@@ -44,6 +44,7 @@
                 <div class="walk-card-date">${App.formatDateTime(walk.date)}</div>
               </div>
               ${walk.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(walk.activity_type || 'Strava')}</span>` : ''}
+              ${user && user.id !== walk.participant_id ? `<button class="btn-follow${walk.user_following ? ' following' : ''}" data-follow-id="${walk.participant_id}" onclick="toggleFollow(${walk.participant_id}, this)">${walk.user_following ? 'Following' : 'Follow'}</button>` : ''}
             </div>
 
             ${user && user.id === walk.participant_id ? `
@@ -153,6 +154,16 @@
           </div>
         </div>
       `;
+    }
+
+    async function toggleFollow(participantId, btn) {
+      try {
+        const result = await App.fetchJSON(`/api/follows/${participantId}`, { method: 'POST' });
+        document.querySelectorAll(`[data-follow-id="${participantId}"]`).forEach(b => {
+          b.className = 'btn-follow' + (result.following ? ' following' : '');
+          b.textContent = result.following ? 'Following' : 'Follow';
+        });
+      } catch {}
     }
 
     async function toggleLike() {

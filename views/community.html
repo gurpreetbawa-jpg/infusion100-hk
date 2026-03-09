@@ -111,6 +111,7 @@
                   <div class="walk-card-uploaded">uploaded ${App.formatRelative(w.created_at)}</div>
                 </div>
                 ${w.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}
+                ${currentUser && currentUser.id !== w.participant_id ? `<button class="btn-follow${w.user_following ? ' following' : ''}" data-follow-id="${w.participant_id}" onclick="toggleFollow(${w.participant_id}, this)">${w.user_following ? 'Following' : 'Follow'}</button>` : ''}
               </div>
 
               ${w.caption ? `<p class="walk-card-caption">${App.escapeHtml(w.caption)}</p>` : ''}
@@ -140,6 +141,17 @@
       } catch (err) {
         document.getElementById('feed').innerHTML = '<div class="alert alert-danger">Failed to load feed.</div>';
       }
+    }
+
+    async function toggleFollow(participantId, btn) {
+      if (!currentUser) return window.location.href = '/login';
+      try {
+        const result = await App.fetchJSON(`/api/follows/${participantId}`, { method: 'POST' });
+        document.querySelectorAll(`[data-follow-id="${participantId}"]`).forEach(b => {
+          b.className = 'btn-follow' + (result.following ? ' following' : '');
+          b.textContent = result.following ? 'Following' : 'Follow';
+        });
+      } catch {}
     }
 
     async function toggleLike(walkId, btn) {
