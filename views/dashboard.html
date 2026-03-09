@@ -55,8 +55,8 @@
         <div class="stat-label">Longest Activity</div>
       </a>
       <a href="#recentWalks" class="stat-card" style="text-decoration:none;color:inherit;cursor:pointer">
-        <div class="stat-value" id="daysUntil">--</div>
-        <div class="stat-label">Days Until Event</div>
+        <div class="stat-value" id="walkersCount">--</div>
+        <div class="stat-label">Walkers Signed Up</div>
       </a>
     </div>
 
@@ -135,10 +135,11 @@
           '<a href="/event" class="btn btn-secondary">Event Day</a>');
       }
 
-      // Days until event
-      const eventDate = new Date('2026-05-16');
-      const days = Math.max(0, Math.ceil((eventDate - Date.now()) / 86400000));
-      document.getElementById('daysUntil').textContent = days;
+      // Walkers signed up
+      try {
+        const pc = await App.fetchJSON('/api/participant-count');
+        document.getElementById('walkersCount').textContent = pc.walkers;
+      } catch {}
 
       // Stats
       try {

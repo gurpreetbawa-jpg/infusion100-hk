@@ -110,10 +110,15 @@ router.put('/me', isAuthenticated, async (req, res) => {
 // --- Public Stats ---
 router.get('/participant-count', async (req, res) => {
   try {
-    const result = await db.query('SELECT COUNT(*) FROM participants WHERE profile_complete = TRUE');
-    res.json({ count: parseInt(result.rows[0].count) });
+    const result = await db.query(`
+      SELECT
+        COUNT(*) AS count,
+        COUNT(*) FILTER (WHERE walking_on_day = TRUE) AS walkers
+      FROM participants WHERE profile_complete = TRUE
+    `);
+    res.json({ count: parseInt(result.rows[0].count), walkers: parseInt(result.rows[0].walkers) });
   } catch {
-    res.json({ count: 0 });
+    res.json({ count: 0, walkers: 0 });
   }
 });
 

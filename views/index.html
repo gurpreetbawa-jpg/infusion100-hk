@@ -102,8 +102,8 @@
         map.fitBounds(coords, { padding: [30, 30] });
       }
 
-      const { count } = await App.fetchJSON('/api/participant-count');
-      document.getElementById('participantCount').textContent = count;
+      const { walkers } = await App.fetchJSON('/api/participant-count');
+      document.getElementById('participantCount').textContent = walkers;
     })();
   </script>
 </body>
