@@ -21,7 +21,7 @@
   <div class="container">
     <div class="page-header">
       <h1>Participants</h1>
-      <a href="/admin/api/participants/export" class="btn btn-secondary btn-sm">Export CSV</a>
+      <a href="/admin/api/participants/export" class="btn btn-secondary btn-sm" id="exportCsvBtn">Export CSV</a>
     </div>
 
     <div id="alertBox"></div>
@@ -242,6 +242,11 @@
       } catch (err) {
         App.showAlert(document.getElementById('alertBox'), err.message, 'danger');
       }
+    }
+
+    // Hide CSV export in iOS standalone — downloads don't work in PWA mode
+    if (window.navigator.standalone) {
+      document.getElementById('exportCsvBtn').style.display = 'none';
     }
 
     App.loadUser();
