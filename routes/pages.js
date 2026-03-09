@@ -25,7 +25,7 @@ router.get('/dashboard', isAuthenticated, isProfileComplete, sendPage('dashboard
 router.get('/walk/log', isAuthenticated, isProfileComplete, sendPage('log-walk.html'));
 router.get('/walk/:id', sendPage('walk-detail.html'));
 router.get('/community', sendPage('community.html'));
-router.get('/stats', isAuthenticated, isProfileComplete, sendPage('stats.html'));
+router.get('/stats', (req, res) => res.redirect('/dashboard'));
 router.get('/walkers', isAuthenticated, isProfileComplete, sendPage('walkers.html'));
 router.get('/event', ...gated('EVENT_DAY_TRACKING', isAuthenticated, isProfileComplete), sendPage('event.html'));
 

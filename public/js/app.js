@@ -179,7 +179,7 @@ App.buildNav = function () {
         ['/dashboard', 'Dashboard'],
         ['/community', 'Community'],
         ['/walkers', 'Walkers'],
-        ['/stats', 'My Stats'],
+
         ...(this.features.eventDayTracking ? [['/leaderboard', 'Live Map']] : []),
         ...(isAdmin ? [['/admin', 'Admin']] : []),
         ['/auth/logout', 'Log Out'],

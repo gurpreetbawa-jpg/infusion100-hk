@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v35';
+const CACHE_VERSION = 'v36';
 const STATIC_CACHE = `infusion100-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `infusion100-dynamic-${CACHE_VERSION}`;
 
