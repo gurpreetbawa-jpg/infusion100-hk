@@ -93,6 +93,8 @@ router.put('/me', isAuthenticated, async (req, res) => {
       return res.status(400).json({ error: 'Emergency contact details are required for event day walkers' });
     }
 
+    const wasNew = !req.user.profile_complete;
+
     const result = await db.query(
       `UPDATE participants SET full_name = $1, phone = $2, emergency_contact_name = $3,
        emergency_contact_phone = $4, walking_on_day = $5, gdpr_consent = $6, profile_complete = TRUE WHERE id = $7 RETURNING *`,
@@ -101,6 +103,40 @@ router.put('/me', isAuthenticated, async (req, res) => {
     );
     console.log(`[PROFILE] Updated: ${full_name} (id:${req.user.id})`);
     res.json(result.rows[0]);
+
+    // Notify admins of new registration
+    if (wasNew) {
+      const webpush = req.app.locals.webpush;
+      if (webpush) {
+        const walkingText = walking_on_day ? 'Walking on event day' : 'Not walking on event day';
+        const payload = JSON.stringify({
+          title: 'New Registration',
+          body: `${full_name} has registered. ${walkingText}.`,
+          url: '/admin/participants',
+        });
+        const subs = await db.query(
+          `SELECT ps.*, p.full_name AS admin_name, p.email AS admin_email
+           FROM push_subscriptions ps
+           JOIN participants p ON p.id = ps.participant_id
+           WHERE p.role = 'admin'`
+        );
+        for (const sub of subs.rows) {
+          const pushSub = {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth },
+          };
+          try {
+            await webpush.sendNotification(pushSub, payload);
+          } catch (err) {
+            if (err.statusCode === 410 || err.statusCode === 404) {
+              await db.query('DELETE FROM push_subscriptions WHERE id = $1', [sub.id]);
+            }
+          }
+        }
+        const adminNames = subs.rows.map(s => s.admin_email).join(', ');
+        console.log(`[PUSH] New registration notification sent to ${subs.rows.length} admin subscribers (${adminNames})`);
+      }
+    }
   } catch (err) {
     console.error('Update profile error:', err);
     res.status(500).json({ error: 'Failed to update profile' });
