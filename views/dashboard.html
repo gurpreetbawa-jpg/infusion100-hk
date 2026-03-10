@@ -54,6 +54,10 @@
         <div class="stat-value" id="longestWalk">--</div>
         <div class="stat-label">Longest Activity</div>
       </a>
+      <div class="stat-card">
+        <div class="stat-value" id="daysToGo">--</div>
+        <div class="stat-label">Days To Go</div>
+      </div>
     </div>
 
     <!-- Activity Heatmap -->
@@ -142,6 +146,9 @@
         document.getElementById('longestWalk').textContent = App.formatDistance(stats.longest_walk);
         renderHeatmap(stats.calendar);
       } catch {}
+      const eventDate = new Date('2026-05-16T00:00:00');
+      const daysToGo = Math.ceil((eventDate - new Date()) / (1000 * 60 * 60 * 24));
+      document.getElementById('daysToGo').textContent = daysToGo > 0 ? daysToGo : 'Today!';
 
       // Profile
       renderProfile();

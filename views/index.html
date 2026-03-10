@@ -35,6 +35,10 @@
         <div class="hero-stat-value">16 May</div>
         <div class="hero-stat-label">Event Day</div>
       </div>
+      <div>
+        <div class="hero-stat-value" id="daysToGo">--</div>
+        <div class="hero-stat-label">Days To Go</div>
+      </div>
     </div>
   </section>
 
@@ -111,6 +115,10 @@
 
       const { walkers } = await App.fetchJSON('/api/participant-count');
       document.getElementById('participantCount').textContent = walkers;
+
+      const eventDate = new Date('2026-05-16T00:00:00');
+      const daysToGo = Math.ceil((eventDate - new Date()) / (1000 * 60 * 60 * 24));
+      document.getElementById('daysToGo').textContent = daysToGo > 0 ? daysToGo : 'Today!';
     })();
   </script>
 </body>
