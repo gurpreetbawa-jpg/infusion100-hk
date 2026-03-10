@@ -13,6 +13,39 @@ function gated(toggle, ...fallback) {
   return features[toggle] ? fallback : [isAdmin];
 }
 
+async function notifyFollowers(app, userId, userName, { title, body, url }) {
+  const webpush = app.locals.webpush;
+  if (!webpush) return;
+  try {
+    const subs = await db.query(
+      `SELECT ps.*, p.email AS follower_email
+       FROM push_subscriptions ps
+       JOIN participant_follows pf ON pf.follower_id = ps.participant_id
+       JOIN participants p ON p.id = ps.participant_id
+       WHERE pf.following_id = $1`,
+      [userId]
+    );
+    if (subs.rows.length === 0) return;
+    const payload = JSON.stringify({ title, body, url });
+    for (const sub of subs.rows) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth } },
+          payload
+        );
+      } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await db.query('DELETE FROM push_subscriptions WHERE id = $1', [sub.id]);
+        }
+      }
+    }
+    const followers = subs.rows.map(s => s.follower_email).join(', ');
+    console.log(`[PUSH] Activity notification for ${userName} sent to ${subs.rows.length} followers (${followers})`);
+  } catch (err) {
+    console.error('Notify followers error:', err);
+  }
+}
+
 const upload = multer({
   dest: 'uploads/',
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -371,8 +404,15 @@ router.post('/walks', isAuthenticated, uploadWalk.fields([
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [req.user.id, date, distance_km, duration_mins, caption, description || null, gpxPath, imagePath]
     );
+    const walk = result.rows[0];
     console.log(`[WALK] Logged: "${caption || 'Walk'}" ${distance_km}km by ${req.user.full_name} (id:${req.user.id})`);
-    res.json(result.rows[0]);
+    res.json(walk);
+
+    notifyFollowers(req.app, req.user.id, req.user.full_name, {
+      title: 'New Activity',
+      body: `${req.user.full_name} logged: ${caption || 'Walk'}`,
+      url: `/walk/${walk.id}`,
+    });
   } catch (err) {
     console.error('Log walk error:', err);
     res.status(500).json({ error: 'Failed to log walk' });
@@ -680,6 +720,19 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
 
     console.log(`[STRAVA] Synced ${imported} activity(ies) for ${req.user.full_name} (id:${req.user.id})`);
     res.json({ imported, message: `Imported ${imported} new activity(ies) from Strava` });
+
+    if (imported > 0) {
+      const latest = await db.query(
+        'SELECT id FROM walks WHERE participant_id = $1 ORDER BY id DESC LIMIT 1',
+        [req.user.id]
+      );
+      const activityWord = imported === 1 ? 'activity' : 'activities';
+      notifyFollowers(req.app, req.user.id, req.user.full_name, {
+        title: 'New Activity',
+        body: `${req.user.full_name} synced ${imported} ${activityWord} from Strava`,
+        url: `/walk/${latest.rows[0].id}`,
+      });
+    }
   } catch (err) {
     console.error('Strava sync error:', err);
     res.status(500).json({ error: 'Failed to sync Strava activities' });
