@@ -302,7 +302,7 @@ router.get('/locations/live', ...gated('EVENT_DAY_TRACKING'), async (req, res) =
 // --- Walks ---
 router.get('/walks', async (req, res) => {
   try {
-    const { cursor, limit = 20, participant_id, sort } = req.query;
+    const { cursor, limit = 20, participant_id, sort, following } = req.query;
     const sortByDate = sort !== 'upload';
     const pageLimit = Math.min(parseInt(limit) || 20, 50);
     let query = `
@@ -318,6 +318,10 @@ router.get('/walks', async (req, res) => {
     if (participant_id) {
       params.push(participant_id);
       conditions.push(`w.participant_id = $${params.length}`);
+    }
+    if (following && req.user) {
+      params.push(req.user.id);
+      conditions.push(`w.participant_id IN (SELECT following_id FROM participant_follows WHERE follower_id = $${params.length})`);
     }
     if (cursor) {
       if (sortByDate && cursor.includes('_')) {

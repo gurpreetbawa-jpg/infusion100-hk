@@ -39,6 +39,11 @@
       </div>
     </div>
 
+    <div class="flex" style="gap:0.5rem;margin-bottom:0.75rem;display:none" id="filterTabs">
+      <button class="btn btn-sm btn-primary" id="tabAll" onclick="setFilter('all')">All</button>
+      <button class="btn btn-sm btn-outline" id="tabFollowing" onclick="setFilter('following')">Following</button>
+    </div>
+
     <div class="flex" style="justify-content:flex-end;align-items:center;gap:0.5rem;margin-bottom:0.75rem">
       <span class="text-muted" style="font-size:0.8rem" id="sortLabel">Activity date</span>
       <label class="toggle-switch">
@@ -62,11 +67,13 @@
     let nextCursor = null;
     let currentUser = null;
     let sortMode = 'date';
+    let feedFilter = 'all';
 
     async function init() {
       currentUser = await App.loadUser();
       if (currentUser) {
         document.getElementById('logWalkBtn').style.display = '';
+        document.getElementById('filterTabs').style.display = 'flex';
       }
       // Community stats
       try {
@@ -75,6 +82,15 @@
         document.getElementById('statActivities').textContent = s.activities;
         document.getElementById('statDistance').textContent = App.formatDistance(s.total_km);
       } catch {}
+      loadWalks();
+    }
+
+    function setFilter(filter) {
+      feedFilter = filter;
+      document.getElementById('tabAll').className = 'btn btn-sm ' + (filter === 'all' ? 'btn-primary' : 'btn-outline');
+      document.getElementById('tabFollowing').className = 'btn btn-sm ' + (filter === 'following' ? 'btn-primary' : 'btn-outline');
+      nextCursor = null;
+      document.getElementById('feed').innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Loading...</div>';
       loadWalks();
     }
 
@@ -88,13 +104,16 @@
     async function loadWalks() {
       try {
         let url = `/api/walks?limit=15&sort=${sortMode}`;
+        if (feedFilter === 'following') url += '&following=1';
         if (nextCursor) url += `&cursor=${nextCursor}`;
 
         const data = await App.fetchJSON(url);
         const feed = document.getElementById('feed');
 
         if (!nextCursor && data.walks.length === 0) {
-          feed.innerHTML = '<p class="text-muted text-center mt-3">No walks yet. Be the first to log one!</p>';
+          feed.innerHTML = feedFilter === 'following'
+            ? '<p class="text-muted text-center mt-3">No activities from people you follow yet. <a href="/walkers">Find walkers to follow</a>.</p>'
+            : '<p class="text-muted text-center mt-3">No walks yet. Be the first to log one!</p>';
           return;
         }
 
