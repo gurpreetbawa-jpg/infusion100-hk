@@ -82,7 +82,14 @@
         btn.textContent = 'Dashboard';
       }
       // Route map
-      const map = L.map('routeMap').setView([51.48, -0.12], 11);
+      const isMobile = 'ontouchstart' in window;
+      const map = L.map('routeMap', {
+        dragging: !isMobile,
+        touchZoom: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: !isMobile,
+        boxZoom: !isMobile,
+      }).setView([51.48, -0.12], 11);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
