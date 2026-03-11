@@ -54,9 +54,10 @@
           <input type="text" id="caption" class="form-control" placeholder="e.g. Morning walk along the Thames" maxlength="200">
         </div>
 
-        <div class="form-group">
+        <div class="form-group" style="position:relative">
           <label for="description">Description (optional)</label>
-          <textarea id="description" class="form-control" rows="3" placeholder="Any extra details about your walk..."></textarea>
+          <textarea id="description" class="form-control" rows="3" placeholder="Any extra details about your walk... Use @ to mention people"></textarea>
+          <div id="mentionDropdown" class="mention-dropdown hidden"></div>
         </div>
 
         <div class="form-group">
@@ -85,7 +86,18 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/app.js"></script>
   <script>
-    App.loadUser();
+    let followedUsers = [];
+    let mentions = [];
+    let activeDropdownIndex = -1;
+
+    App.loadUser().then(user => {
+      if (user) {
+        App.fetchJSON('/api/follows').then(data => {
+          followedUsers = data.following || [];
+        }).catch(() => {});
+      }
+    });
+
     let unit = 'km';
     let gpxMap;
 
@@ -155,6 +167,102 @@
       reader.readAsText(file);
     });
 
+    // --- Mention autocomplete ---
+    const descEl = document.getElementById('description');
+    const dropdown = document.getElementById('mentionDropdown');
+
+    function getMentionQuery() {
+      const val = descEl.value;
+      const pos = descEl.selectionStart;
+      // Scan backwards from cursor to find @ preceded by start or whitespace
+      let i = pos - 1;
+      while (i >= 0 && val[i] !== '@' && val[i] !== '\n') i--;
+      if (i < 0 || val[i] !== '@') return null;
+      // @ must be at start or preceded by whitespace
+      if (i > 0 && !/\s/.test(val[i - 1])) return null;
+      return { start: i, query: val.substring(i + 1, pos) };
+    }
+
+    function showDropdown(matches) {
+      if (matches.length === 0) { hideDropdown(); return; }
+      activeDropdownIndex = 0;
+      dropdown.innerHTML = matches.map((u, idx) =>
+        `<div class="mention-item${idx === 0 ? ' active' : ''}" data-id="${u.id}" data-name="${App.escapeHtml(u.full_name)}">
+          ${App.renderAvatar(u, 'sm')}
+          <span>${App.escapeHtml(u.full_name)}</span>
+        </div>`
+      ).join('');
+      dropdown.classList.remove('hidden');
+    }
+
+    function hideDropdown() {
+      dropdown.classList.add('hidden');
+      activeDropdownIndex = -1;
+    }
+
+    function selectMention(id, name) {
+      const mq = getMentionQuery();
+      if (!mq) return;
+      const before = descEl.value.substring(0, mq.start);
+      const after = descEl.value.substring(descEl.selectionStart);
+      descEl.value = before + '@' + name + ' ' + after;
+      const newPos = mq.start + name.length + 2;
+      descEl.setSelectionRange(newPos, newPos);
+      descEl.focus();
+      // Dedup
+      if (!mentions.find(m => m.id === id)) {
+        mentions.push({ id, name });
+      }
+      hideDropdown();
+    }
+
+    descEl.addEventListener('input', () => {
+      if (followedUsers.length === 0) return;
+      const mq = getMentionQuery();
+      if (!mq) { hideDropdown(); return; }
+      const q = mq.query.toLowerCase();
+      const matches = followedUsers.filter(u =>
+        u.full_name.toLowerCase().includes(q)
+      ).slice(0, 8);
+      showDropdown(matches);
+    });
+
+    descEl.addEventListener('keydown', (e) => {
+      if (dropdown.classList.contains('hidden')) return;
+      const items = dropdown.querySelectorAll('.mention-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeDropdownIndex = Math.min(activeDropdownIndex + 1, items.length - 1);
+        items.forEach((el, i) => el.classList.toggle('active', i === activeDropdownIndex));
+        items[activeDropdownIndex]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeDropdownIndex = Math.max(activeDropdownIndex - 1, 0);
+        items.forEach((el, i) => el.classList.toggle('active', i === activeDropdownIndex));
+        items[activeDropdownIndex]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        if (activeDropdownIndex >= 0 && items[activeDropdownIndex]) {
+          e.preventDefault();
+          const el = items[activeDropdownIndex];
+          selectMention(parseInt(el.dataset.id), el.dataset.name);
+        }
+      } else if (e.key === 'Escape') {
+        hideDropdown();
+      }
+    });
+
+    dropdown.addEventListener('mousedown', (e) => {
+      const item = e.target.closest('.mention-item');
+      if (item) {
+        e.preventDefault();
+        selectMention(parseInt(item.dataset.id), item.dataset.name);
+      }
+    });
+
+    descEl.addEventListener('blur', () => {
+      setTimeout(hideDropdown, 150);
+    });
+
     document.getElementById('walkForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('submitBtn');
@@ -175,6 +283,9 @@
         formData.append('duration_mins', document.getElementById('duration').value || '');
         formData.append('caption', document.getElementById('caption').value);
         formData.append('description', document.getElementById('description').value);
+        if (mentions.length > 0) {
+          formData.append('mentions', JSON.stringify(mentions));
+        }
 
         const imageFile = document.getElementById('image').files[0];
         if (imageFile) {

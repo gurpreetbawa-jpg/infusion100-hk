@@ -76,6 +76,7 @@ async function run() {
       PRIMARY KEY (follower_id, following_id),
       CHECK (follower_id != following_id)
     )`,
+    `ALTER TABLE walks ADD COLUMN IF NOT EXISTS mentions JSONB`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {

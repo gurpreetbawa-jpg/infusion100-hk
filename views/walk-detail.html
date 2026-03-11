@@ -88,8 +88,8 @@
               </form>
             ` : ''}
 
-            ${walk.caption ? `<p class="walk-card-caption">${App.escapeHtml(walk.caption)}</p>` : ''}
-            ${walk.description ? `<p class="walk-card-description" style="color:var(--text-muted);font-size:0.875rem;margin:0.25rem 0 0.5rem">${App.escapeHtml(walk.description)}</p>` : ''}
+            ${walk.caption ? `<p class="walk-card-caption">${App.renderMentions(App.escapeHtml(walk.caption), walk.mentions)}</p>` : ''}
+            ${walk.description ? `<p class="walk-card-description" style="color:var(--text-muted);font-size:0.875rem;margin:0.25rem 0 0.5rem">${App.renderMentions(App.escapeHtml(walk.description), walk.mentions)}</p>` : ''}
             ${walk.image_path ? `<img src="/${walk.image_path}" alt="Walk photo" class="walk-card-image" loading="lazy">` : ''}
 
             <div class="walk-card-stats">

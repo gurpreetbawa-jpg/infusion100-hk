@@ -920,6 +920,37 @@ tr:hover td { background: var(--surface-alt); }
 .gap-1 { gap: 0.5rem; }
 .gap-2 { gap: 1rem; }
 .hidden { display: none !important; }
+
+/* --- Mentions --- */
+.mention { color: var(--accent); font-weight: 500; }
+.mention:hover { color: var(--accent-hover); text-decoration: underline; }
+
+.mention-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.mention-dropdown .mention-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.mention-dropdown .mention-item:hover,
+.mention-dropdown .mention-item.active {
+  background: var(--surface-alt);
+}
 .text-sm { font-size: 0.875rem; }
 
 /* --- Admin --- */

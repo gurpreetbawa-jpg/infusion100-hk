@@ -99,6 +99,15 @@ const App = {
     div.textContent = str;
     return div.innerHTML;
   },
+
+  renderMentions(text, mentions) {
+    if (!mentions || !mentions.length) return text;
+    mentions.forEach(m => {
+      const escaped = App.escapeHtml(m.name);
+      text = text.replace('@' + escaped, `<a href="/community?walker=${m.id}" class="mention">@${escaped}</a>`);
+    });
+    return text;
+  },
 };
 
 // Push notification subscription

@@ -68,12 +68,16 @@
     let currentUser = null;
     let sortMode = 'date';
     let feedFilter = 'all';
+    let walkerFilter = new URLSearchParams(window.location.search).get('walker');
 
     async function init() {
       currentUser = await App.loadUser();
       if (currentUser) {
         document.getElementById('logWalkBtn').style.display = '';
         document.getElementById('filterTabs').style.display = 'flex';
+      }
+      if (walkerFilter) {
+        document.getElementById('filterTabs').style.display = 'none';
       }
       // Community stats
       try {
@@ -104,7 +108,8 @@
     async function loadWalks() {
       try {
         let url = `/api/walks?limit=15&sort=${sortMode}`;
-        if (feedFilter === 'following') url += '&following=1';
+        if (walkerFilter) url += `&participant_id=${walkerFilter}`;
+        else if (feedFilter === 'following') url += '&following=1';
         if (nextCursor) url += `&cursor=${nextCursor}`;
 
         const data = await App.fetchJSON(url);
@@ -133,8 +138,8 @@
                 ${currentUser && currentUser.id !== w.participant_id ? `<button class="btn-follow${w.user_following ? ' following' : ''}" data-follow-id="${w.participant_id}" onclick="toggleFollow(${w.participant_id}, this)">${w.user_following ? 'Following' : 'Follow'}</button>` : ''}
               </div>
 
-              ${w.caption ? `<p class="walk-card-caption">${App.escapeHtml(w.caption)}</p>` : ''}
-              ${w.description ? `<p class="walk-card-description" style="color:var(--text-muted);font-size:0.875rem;margin:0.25rem 0 0.5rem">${App.escapeHtml(w.description)}</p>` : ''}
+              ${w.caption ? `<p class="walk-card-caption">${App.renderMentions(App.escapeHtml(w.caption), w.mentions)}</p>` : ''}
+              ${w.description ? `<p class="walk-card-description" style="color:var(--text-muted);font-size:0.875rem;margin:0.25rem 0 0.5rem">${App.renderMentions(App.escapeHtml(w.description), w.mentions)}</p>` : ''}
               ${w.image_path ? `<img src="/${w.image_path}" alt="Walk photo" class="walk-card-image" loading="lazy">` : ''}
 
               <div class="walk-card-stats">
