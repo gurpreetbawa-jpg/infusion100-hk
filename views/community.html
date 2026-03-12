@@ -134,7 +134,9 @@
                   <div class="walk-card-date">${App.formatRelative(w.date)}</div>
                   <div class="walk-card-uploaded">uploaded ${App.formatRelative(w.created_at)}</div>
                 </div>
-                ${w.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}
+                ${w.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(w.activity_type || 'Strava')}</span>
+                <a href="https://www.strava.com/activities/${w.strava_id}" target="_blank" rel="noopener" class="strava-link">View on Strava</a>
+                <img src="/icons/powered-by-strava.svg" alt="Powered by Strava" style="height:24px">` : ''}
                 ${currentUser && currentUser.id !== w.participant_id ? `<button class="btn-follow${w.user_following ? ' following' : ''}" data-follow-id="${w.participant_id}" onclick="toggleFollow(${w.participant_id}, this)">${w.user_following ? 'Following' : 'Follow'}</button>` : ''}
               </div>
 

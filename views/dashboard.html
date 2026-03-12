@@ -109,6 +109,7 @@
     <div class="card hidden" id="stravaCard">
       <div class="flex-between">
         <h2>Strava Integration</h2>
+        <img src="/icons/powered-by-strava.svg" alt="Powered by Strava" style="height:24px">
         <span id="stravaStatus"></span>
       </div>
       <div id="stravaActions" class="mt-1"></div>
@@ -274,7 +275,7 @@
         status.innerHTML = '<span class="badge badge-warning">Not connected</span>';
         actions.innerHTML = `
           <p class="text-muted mb-1" style="font-size:0.875rem">Connect Strava to automatically import your activities.</p>
-          <a href="/auth/strava" class="btn btn-primary btn-sm">Connect Strava</a>
+          <a href="/auth/strava"><img src="/icons/btn-connect-with-strava.svg" alt="Connect with Strava" style="height:48px"></a>
         `;
       }
     }
@@ -303,11 +304,17 @@
     }
 
     async function unlinkStrava() {
-      if (!confirm('Unlink your Strava account?')) return;
+      if (!confirm('Unlink your Strava account? All imported Strava activities will be permanently deleted.')) return;
       await App.fetchJSON('/api/strava/unlink', { method: 'DELETE' });
       user.strava_connected = false;
       renderStrava();
-      App.showAlert(document.getElementById('alertBox'), 'Strava unlinked', 'info');
+      loadRecentWalks();
+      const stats = await App.fetchJSON('/api/stats');
+      document.getElementById('totalDistance').textContent = App.formatDistance(stats.total_distance);
+      document.getElementById('totalWalks').textContent = stats.total_walks;
+      document.getElementById('longestWalk').textContent = App.formatDistance(stats.longest_walk);
+      renderHeatmap(stats.calendar);
+      App.showAlert(document.getElementById('alertBox'), 'Strava unlinked. All imported activities have been deleted.', 'info');
     }
 
     async function deleteWalk(id, e) {
@@ -341,7 +348,8 @@
               ${w.image_path ? `<img src="/${w.image_path}" alt="" class="walk-card-thumb" loading="lazy">` : ''}
               <div style="min-width:0;flex:1">
                 <strong>${App.escapeHtml(w.caption || 'Walk')}</strong>
-                ${w.strava_id ? `<span class="badge badge-strava" style="margin-left:0.25rem">${App.escapeHtml(w.activity_type || 'Strava')}</span>` : ''}
+                ${w.strava_id ? `<span class="badge badge-strava" style="margin-left:0.25rem">${App.escapeHtml(w.activity_type || 'Strava')}</span>
+                <a href="https://www.strava.com/activities/${w.strava_id}" target="_blank" rel="noopener" class="strava-link" onclick="event.stopPropagation()">View on Strava</a>` : ''}
               </div>
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:0.5rem;gap:0.5rem;flex-wrap:wrap">

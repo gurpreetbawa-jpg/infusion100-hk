@@ -261,6 +261,13 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 
 .badge-strava { background: #FC4C02; color: white; }
+
+.strava-link {
+  color: #FC5200;
+  font-weight: 600;
+  text-decoration: underline;
+  font-size: 0.75rem;
+}
 .badge-success { background: #D1FAE5; color: #065F46; }
 .badge-warning { background: #FEF3C7; color: #92400E; }
 .badge-info { background: #DBEAFE; color: #1E40AF; }

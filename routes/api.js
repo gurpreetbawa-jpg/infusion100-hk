@@ -101,6 +101,14 @@ async function compressImage(inputPath) {
 
 const STRAVA_ELIGIBLE_EMAIL = 'raj.shah.uk@gmail.com';
 
+function stripStravaFields(walk) {
+  walk.strava_id = null;
+  walk.polyline = null;
+  walk.image_path = null;
+  walk.activity_type = null;
+}
+
+
 // --- Feature Toggles ---
 router.get('/features', (req, res) => {
   const isAdmin = req.isAuthenticated() && req.user.role === 'admin';
@@ -379,6 +387,13 @@ router.get('/walks', async (req, res) => {
       }
     }
 
+    // Strip Strava-specific data from walks not owned by the viewer
+    for (const walk of result.rows) {
+      if (walk.strava_id && walk.participant_id !== req.user?.id) {
+        stripStravaFields(walk);
+      }
+    }
+
     res.json({ walks: result.rows, nextCursor });
   } catch (err) {
     console.error('Walks list error:', err);
@@ -463,6 +478,11 @@ router.get('/walks/:id', async (req, res) => {
         [req.user.id, walk.participant_id]
       );
       walk.user_following = followed.rows.length > 0;
+    }
+
+    // Strip Strava-specific data if viewer is not the owner
+    if (walk.strava_id && walk.participant_id !== req.user?.id) {
+      stripStravaFields(walk);
     }
 
     res.json(walk);
@@ -671,9 +691,8 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
         );
         if (exists.rows.length > 0) continue;
 
-        // Fetch detailed activity to get description and photos
+        // Fetch detailed activity to get description
         let description = null;
-        let imagePath = null;
         try {
           const detailRes = await fetch(
             `https://www.strava.com/api/v3/activities/${activity.id}`,
@@ -682,31 +701,14 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
           if (detailRes.ok) {
             const detail = await detailRes.json();
             description = detail.description || null;
-
-            // Download primary photo if available
-            const photoUrl = detail.photos?.primary?.urls?.['600'];
-            if (photoUrl) {
-              try {
-                const photoRes = await fetch(photoUrl);
-                if (photoRes.ok) {
-                  const buffer = Buffer.from(await photoRes.arrayBuffer());
-                  const tmpPath = path.join('uploads', `strava-${activity.id}-${Date.now()}`);
-                  fs.writeFileSync(tmpPath, buffer);
-                  imagePath = await compressImage(tmpPath);
-                  console.log(`[STRAVA] Downloaded photo for activity ${activity.id}`);
-                }
-              } catch (photoErr) {
-                console.log(`[STRAVA] Could not download photo for activity ${activity.id}: ${photoErr.message}`);
-              }
-            }
           }
         } catch (err) {
           console.log(`[STRAVA] Could not fetch detail for activity ${activity.id}: ${err.message}`);
         }
 
         await db.query(
-          `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, description, polyline, strava_id, activity_type, image_path)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, description, polyline, strava_id, activity_type)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
             req.user.id,
             activity.start_date_local,
@@ -717,7 +719,6 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
             activity.map?.summary_polyline || null,
             activity.id,
             actType,
-            imagePath,
           ]
         );
         imported++;
@@ -738,7 +739,7 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
       const activityWord = imported === 1 ? 'activity' : 'activities';
       notifyFollowers(req.app, req.user.id, req.user.full_name, {
         title: 'New Activity',
-        body: `${req.user.full_name} synced ${imported} ${activityWord} from Strava`,
+        body: `${req.user.full_name} logged ${imported} new ${activityWord}`,
         url: `/walk/${latest.rows[0].id}`,
       });
     }
@@ -753,11 +754,25 @@ router.delete('/strava/unlink', isAuthenticated, async (req, res) => {
     if (req.user.email !== STRAVA_ELIGIBLE_EMAIL) {
       return res.status(403).json({ error: 'Strava integration is temporarily limited' });
     }
+    // Delete Strava walk images from disk
+    const stravaWalks = await db.query(
+      'SELECT image_path FROM walks WHERE participant_id = $1 AND strava_id IS NOT NULL AND image_path IS NOT NULL',
+      [req.user.id]
+    );
+    for (const w of stravaWalks.rows) {
+      fs.unlink(w.image_path, () => {});
+    }
+    // Delete Strava walks from DB
+    await db.query(
+      'DELETE FROM walks WHERE participant_id = $1 AND strava_id IS NOT NULL',
+      [req.user.id]
+    );
     await db.query(
       `UPDATE participants SET strava_token = NULL, strava_refresh_token = NULL,
        strava_token_expires_at = NULL, strava_athlete_id = NULL WHERE id = $1`,
       [req.user.id]
     );
+    console.log(`[STRAVA] Unlinked and deleted all Strava data for ${req.user.full_name} (id:${req.user.id})`);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to unlink Strava' });
@@ -962,6 +977,51 @@ router.get('/stats', isAuthenticated, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// --- Strava Webhooks ---
+// GET /webhooks/strava — subscription verification
+router.get('/webhooks/strava', (req, res) => {
+  if (req.query['hub.verify_token'] === process.env.STRAVA_WEBHOOK_VERIFY_TOKEN) {
+    res.json({ 'hub.challenge': req.query['hub.challenge'] });
+  } else {
+    res.status(403).end();
+  }
+});
+
+// POST /webhooks/strava — event handler
+router.post('/webhooks/strava', async (req, res) => {
+  res.status(200).end(); // Respond immediately per Strava requirements
+  const { object_type, aspect_type, object_id, owner_id } = req.body;
+  try {
+    if (object_type === 'activity' && aspect_type === 'delete') {
+      const deleted = await db.query('DELETE FROM walks WHERE strava_id = $1 RETURNING image_path', [object_id]);
+      for (const w of deleted.rows) {
+        if (w.image_path) fs.unlink(w.image_path, () => {});
+      }
+      console.log(`[STRAVA WEBHOOK] Deleted activity ${object_id}`);
+    }
+    if (object_type === 'athlete' && aspect_type === 'update' && req.body.updates?.authorized === 'false') {
+      // Deauthorization — clear all Strava data for this athlete
+      const user = await db.query('SELECT id FROM participants WHERE strava_athlete_id = $1', [owner_id]);
+      if (user.rows[0]) {
+        const walks = await db.query(
+          'DELETE FROM walks WHERE participant_id = $1 AND strava_id IS NOT NULL RETURNING image_path',
+          [user.rows[0].id]
+        );
+        for (const w of walks.rows) {
+          if (w.image_path) fs.unlink(w.image_path, () => {});
+        }
+        await db.query(
+          'UPDATE participants SET strava_token = NULL, strava_refresh_token = NULL, strava_token_expires_at = NULL, strava_athlete_id = NULL WHERE id = $1',
+          [user.rows[0].id]
+        );
+        console.log(`[STRAVA WEBHOOK] Deauthorized athlete ${owner_id}, cleared data for participant ${user.rows[0].id}`);
+      }
+    }
+  } catch (err) {
+    console.error('[STRAVA WEBHOOK] Error:', err);
   }
 });
 

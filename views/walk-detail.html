@@ -43,7 +43,9 @@
                 <div class="walk-card-name">${App.escapeHtml(walk.full_name)}</div>
                 <div class="walk-card-date">${App.formatDateTime(walk.date)}</div>
               </div>
-              ${walk.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(walk.activity_type || 'Strava')}</span>` : ''}
+              ${walk.strava_id ? `<span class="badge badge-strava">${App.escapeHtml(walk.activity_type || 'Strava')}</span>
+                <a href="https://www.strava.com/activities/${walk.strava_id}" target="_blank" rel="noopener" class="strava-link">View on Strava</a>
+                <img src="/icons/powered-by-strava.svg" alt="Powered by Strava" style="height:24px">` : ''}
               ${user && user.id !== walk.participant_id ? `<button class="btn-follow${walk.user_following ? ' following' : ''}" data-follow-id="${walk.participant_id}" onclick="toggleFollow(${walk.participant_id}, this)">${walk.user_following ? 'Following' : 'Follow'}</button>` : ''}
             </div>
 
