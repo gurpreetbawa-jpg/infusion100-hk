@@ -31,6 +31,7 @@ const App = {
       this.user = null;
     }
     this.buildNav();
+    if (typeof showIOSInstallBanner === 'function') showIOSInstallBanner();
     return this.user;
   },
 
@@ -212,37 +213,35 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
 
-// iOS "Add to Home Screen" install banner
-(function () {
+// iOS "Add to Home Screen" install banner — call after App.loadUser()
+function showIOSInstallBanner() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone === true;
   const dismissed = localStorage.getItem('iosInstallDismissed');
 
-  if (isIOS && !isStandalone && !dismissed) {
-    window.addEventListener('DOMContentLoaded', function () {
-      const banner = document.createElement('div');
-      banner.className = 'ios-install-banner';
-      banner.innerHTML =
-        '<img class="ios-install-banner-icon" src="/icons/icon-192.png" alt="Infusion100">' +
-        '<div class="ios-install-banner-text">' +
-          '<strong>Install Infusion100</strong>' +
-          'Tap <svg class="ios-share-icon" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-          '<rect x="15" y="20" width="20" height="18" rx="3" stroke="currentColor" stroke-width="3" fill="none"/>' +
-          '<line x1="25" y1="8" x2="25" y2="30" stroke="currentColor" stroke-width="3"/>' +
-          '<polyline points="18,15 25,8 32,15" stroke="currentColor" stroke-width="3" fill="none"/>' +
-          '</svg> then <strong style="display:inline">"Add to Home Screen"</strong>' +
-        '</div>' +
-        '<button class="ios-install-banner-close" aria-label="Dismiss">&times;</button>';
+  if (!isIOS || isStandalone || dismissed || !App.user) return;
 
-      banner.querySelector('.ios-install-banner-close').addEventListener('click', function () {
-        banner.remove();
-        localStorage.setItem('iosInstallDismissed', '1');
-      });
+  const banner = document.createElement('div');
+  banner.className = 'ios-install-banner';
+  banner.innerHTML =
+    '<img class="ios-install-banner-icon" src="/icons/icon-192.png" alt="Infusion100">' +
+    '<div class="ios-install-banner-text">' +
+      '<strong>Install Infusion100</strong>' +
+      'Tap <svg class="ios-share-icon" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="15" y="20" width="20" height="18" rx="3" stroke="currentColor" stroke-width="3" fill="none"/>' +
+      '<line x1="25" y1="8" x2="25" y2="30" stroke="currentColor" stroke-width="3"/>' +
+      '<polyline points="18,15 25,8 32,15" stroke="currentColor" stroke-width="3" fill="none"/>' +
+      '</svg> then <strong style="display:inline">"Add to Home Screen"</strong>' +
+    '</div>' +
+    '<button class="ios-install-banner-close" aria-label="Dismiss">&times;</button>';
 
-      document.body.appendChild(banner);
-    });
-  }
-})();
+  banner.querySelector('.ios-install-banner-close').addEventListener('click', function () {
+    banner.remove();
+    localStorage.setItem('iosInstallDismissed', '1');
+  });
+
+  document.body.appendChild(banner);
+}
 
 // Mobile nav toggle
 document.addEventListener('DOMContentLoaded', () => {
