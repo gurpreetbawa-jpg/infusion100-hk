@@ -33,6 +33,21 @@ router.get('/callback/github', passport.authenticate('github', {
   res.redirect('/');
 });
 
+// Facebook OAuth
+router.get('/facebook', passport.authenticate('facebook', {
+  scope: ['email'],
+}));
+
+router.get('/callback/facebook', passport.authenticate('facebook', {
+  failureRedirect: '/login?error=facebook_failed',
+}), (req, res) => {
+  console.log(`[AUTH] Facebook login: ${req.user.email} (id:${req.user.id})`);
+  if (!req.user.profile_complete) {
+    return res.redirect('/register');
+  }
+  res.redirect('/');
+});
+
 // Strava OAuth (login + linking)
 router.get('/strava', (req, res) => {
   const STRAVA_ELIGIBLE_EMAIL = 'raj.shah.uk@gmail.com';

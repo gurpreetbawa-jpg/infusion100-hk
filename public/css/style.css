@@ -783,6 +783,13 @@ tr:hover td { background: var(--surface-alt); }
 }
 .oauth-btn-github:hover { background: #2f363d; }
 
+.oauth-btn-facebook {
+  background: #1877F2;
+  color: white;
+  border-color: #1877F2;
+}
+.oauth-btn-facebook:hover { background: #166fe5; }
+
 .oauth-btn-strava {
   background: #FC4C02;
   color: white;
