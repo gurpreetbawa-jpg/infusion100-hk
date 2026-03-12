@@ -112,8 +112,10 @@
               <button onclick="toggleLike()" id="likeBtn" class="${walk.user_liked ? 'liked' : ''}">
                 ${walk.user_liked ? '&#10084;' : '&#9825;'} <span id="likeCount">${walk.like_count}</span>
               </button>
+              ${parseInt(walk.like_count) > 0 ? `<a href="#" onclick="toggleLikers(event)" class="text-muted" style="font-size:0.875rem" id="likersToggle">See who liked this</a>` : ''}
               <span class="text-muted" style="font-size:0.875rem">${walk.comments?.length || 0} comment(s)</span>
             </div>
+            <div id="likersList" class="hidden" style="margin-bottom:1rem"></div>
 
             <div class="comments-section">
               <div id="commentsList">
@@ -174,6 +176,57 @@
         const btn = document.getElementById('likeBtn');
         btn.className = result.liked ? 'liked' : '';
         btn.innerHTML = `${result.liked ? '&#10084;' : '&#9825;'} <span id="likeCount">${result.count}</span>`;
+        // Update likers toggle link visibility
+        const toggle = document.getElementById('likersToggle');
+        if (result.count > 0 && !toggle) {
+          btn.insertAdjacentHTML('afterend', `<a href="#" onclick="toggleLikers(event)" class="text-muted" style="font-size:0.875rem" id="likersToggle">See who liked this</a>`);
+        } else if (result.count === 0 && toggle) {
+          toggle.remove();
+          document.getElementById('likersList').classList.add('hidden');
+          document.getElementById('likersList').innerHTML = '';
+        }
+        // Refresh likers if visible
+        if (!document.getElementById('likersList').classList.contains('hidden')) {
+          await fetchLikers();
+        }
+      } catch {}
+    }
+
+    let likersVisible = false;
+
+    async function toggleLikers(e) {
+      e.preventDefault();
+      const list = document.getElementById('likersList');
+      if (likersVisible) {
+        list.classList.add('hidden');
+        list.innerHTML = '';
+        likersVisible = false;
+        return;
+      }
+      await fetchLikers();
+      list.classList.remove('hidden');
+      likersVisible = true;
+    }
+
+    async function fetchLikers() {
+      try {
+        const data = await App.fetchJSON(`/api/walks/${walkId}/likes`);
+        const list = document.getElementById('likersList');
+        if (data.likes.length === 0) {
+          list.classList.add('hidden');
+          list.innerHTML = '';
+          likersVisible = false;
+          return;
+        }
+        list.innerHTML = data.likes.map(l => `
+          <div class="comment" style="padding:0.4rem 0">
+            ${App.renderAvatar(l, 'sm')}
+            <div class="comment-body">
+              <div class="comment-name">${App.escapeHtml(l.full_name)}</div>
+              <div class="comment-time">${App.formatRelative(l.created_at)}</div>
+            </div>
+          </div>
+        `).join('');
       } catch {}
     }
 

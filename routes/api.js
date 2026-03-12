@@ -492,6 +492,22 @@ router.get('/walks/:id', async (req, res) => {
   }
 });
 
+router.get('/walks/:id/likes', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT p.id, p.full_name, p.avatar_url, wl.created_at
+      FROM walk_likes wl
+      JOIN participants p ON wl.participant_id = p.id
+      WHERE wl.walk_id = $1
+      ORDER BY wl.created_at DESC
+    `, [req.params.id]);
+    res.json({ likes: result.rows });
+  } catch (err) {
+    console.error('Get likes error:', err);
+    res.status(500).json({ error: 'Failed to fetch likes' });
+  }
+});
+
 router.post('/walks/:id/like', isAuthenticated, async (req, res) => {
   try {
     const walkId = req.params.id;

@@ -154,6 +154,7 @@
                 <button onclick="toggleLike(${w.id}, this)" class="${w.user_liked ? 'liked' : ''}">
                   ${w.user_liked ? '&#10084;' : '&#9825;'} <span>${w.like_count}</span>
                 </button>
+                ${parseInt(w.like_count) > 0 ? `<a href="/walk/${w.id}" style="color:var(--text-muted);font-size:0.875rem">${w.like_count} like(s)</a>` : ''}
                 <a href="/walk/${w.id}" style="color:var(--text-muted);font-size:0.875rem">
                   ${w.comment_count} comment(s)
                 </a>
