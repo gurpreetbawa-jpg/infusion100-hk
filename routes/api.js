@@ -466,6 +466,13 @@ router.get('/walks/:id', async (req, res) => {
     const walk = result.rows[0];
     walk.comments = comments.rows;
 
+    const recentLikers = await db.query(`
+      SELECT p.id, p.full_name, p.avatar_url
+      FROM walk_likes wl JOIN participants p ON wl.participant_id = p.id
+      WHERE wl.walk_id = $1 ORDER BY wl.created_at DESC LIMIT 3
+    `, [req.params.id]);
+    walk.recent_likers = recentLikers.rows;
+
     if (req.user) {
       const liked = await db.query(
         'SELECT 1 FROM walk_likes WHERE walk_id = $1 AND participant_id = $2',

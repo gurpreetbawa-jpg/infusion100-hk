@@ -408,6 +408,45 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .walk-card-actions button:hover { background: var(--surface-alt); color: var(--text); }
 .walk-card-actions button.liked { color: var(--accent); }
 
+/* --- Likes summary (avatar pile) --- */
+.likes-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.avatar-pile {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.avatar-pile .avatar-xs {
+  margin-left: -8px;
+  border: 2px solid var(--surface);
+}
+
+.avatar-pile .avatar-xs:last-child {
+  margin-left: 0;
+}
+
+.avatar-xs { width: 24px; height: 24px; font-size: 0.625rem; }
+
+.likes-summary-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.likes-summary-text strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* --- Comments --- */
 .comments-section { margin-top: 0.75rem; }
 

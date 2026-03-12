@@ -112,10 +112,15 @@
               <button onclick="toggleLike()" id="likeBtn" class="${walk.user_liked ? 'liked' : ''}">
                 ${walk.user_liked ? '&#10084;' : '&#9825;'} <span id="likeCount">${walk.like_count}</span>
               </button>
-              ${parseInt(walk.like_count) > 0 ? `<a href="#" onclick="toggleLikers(event)" class="text-muted" style="font-size:0.875rem" id="likersToggle">See who liked this</a>` : ''}
               <span class="text-muted" style="font-size:0.875rem">${walk.comments?.length || 0} comment(s)</span>
             </div>
-            <div id="likersList" class="hidden" style="margin-bottom:1rem"></div>
+            ${parseInt(walk.like_count) > 0 ? `
+            <div class="likes-summary" id="likesSummary">
+              <div class="avatar-pile">
+                ${walk.recent_likers.map(l => App.renderAvatar(l, 'xs')).join('')}
+              </div>
+              <div class="likes-summary-text">${buildLikerText(walk.recent_likers, parseInt(walk.like_count))}</div>
+            </div>` : ''}
 
             <div class="comments-section">
               <div id="commentsList">
@@ -170,63 +175,43 @@
       } catch {}
     }
 
+    function buildLikerText(likers, totalCount) {
+      const names = likers.map(l => `<strong>${App.escapeHtml(l.full_name.split(' ')[0])}</strong>`);
+      if (totalCount === 1) return `Liked by ${names[0]}`;
+      if (totalCount === 2) return `Liked by ${names[0]} and ${names[1]}`;
+      const others = totalCount - names.length;
+      if (others > 0) return `Liked by ${names.join(', ')}, and <strong>${others} other${others > 1 ? 's' : ''}</strong>`;
+      return `Liked by ${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+    }
+
     async function toggleLike() {
       try {
         const result = await App.fetchJSON(`/api/walks/${walkId}/like`, { method: 'POST' });
         const btn = document.getElementById('likeBtn');
         btn.className = result.liked ? 'liked' : '';
         btn.innerHTML = `${result.liked ? '&#10084;' : '&#9825;'} <span id="likeCount">${result.count}</span>`;
-        // Update likers toggle link visibility
-        const toggle = document.getElementById('likersToggle');
-        if (result.count > 0 && !toggle) {
-          btn.insertAdjacentHTML('afterend', `<a href="#" onclick="toggleLikers(event)" class="text-muted" style="font-size:0.875rem" id="likersToggle">See who liked this</a>`);
-        } else if (result.count === 0 && toggle) {
-          toggle.remove();
-          document.getElementById('likersList').classList.add('hidden');
-          document.getElementById('likersList').innerHTML = '';
-        }
-        // Refresh likers if visible
-        if (!document.getElementById('likersList').classList.contains('hidden')) {
-          await fetchLikers();
-        }
-      } catch {}
-    }
 
-    let likersVisible = false;
-
-    async function toggleLikers(e) {
-      e.preventDefault();
-      const list = document.getElementById('likersList');
-      if (likersVisible) {
-        list.classList.add('hidden');
-        list.innerHTML = '';
-        likersVisible = false;
-        return;
-      }
-      await fetchLikers();
-      list.classList.remove('hidden');
-      likersVisible = true;
-    }
-
-    async function fetchLikers() {
-      try {
-        const data = await App.fetchJSON(`/api/walks/${walkId}/likes`);
-        const list = document.getElementById('likersList');
-        if (data.likes.length === 0) {
-          list.classList.add('hidden');
-          list.innerHTML = '';
-          likersVisible = false;
+        const existing = document.getElementById('likesSummary');
+        if (result.count === 0) {
+          if (existing) existing.remove();
           return;
         }
-        list.innerHTML = data.likes.map(l => `
-          <div class="comment" style="padding:0.4rem 0">
-            ${App.renderAvatar(l, 'sm')}
-            <div class="comment-body">
-              <div class="comment-name">${App.escapeHtml(l.full_name)}</div>
-              <div class="comment-time">${App.formatRelative(l.created_at)}</div>
+
+        const data = await App.fetchJSON(`/api/walks/${walkId}/likes`);
+        const likers = data.likes.slice(0, 3);
+        const html = `
+          <div class="likes-summary" id="likesSummary">
+            <div class="avatar-pile">
+              ${likers.map(l => App.renderAvatar(l, 'xs')).join('')}
             </div>
-          </div>
-        `).join('');
+            <div class="likes-summary-text">${buildLikerText(likers, result.count)}</div>
+          </div>`;
+
+        if (existing) {
+          existing.outerHTML = html;
+        } else {
+          document.querySelector('.walk-card-actions').insertAdjacentHTML('afterend', html);
+        }
       } catch {}
     }
 
