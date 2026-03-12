@@ -40,6 +40,10 @@
         <div class="stat-value" id="daysUntil">--</div>
         <div class="stat-label">Days Until Event</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-value" id="pendingDeletions">--</div>
+        <div class="stat-label">Pending Deletions</div>
+      </div>
     </div>
 
     <div class="admin-actions-grid">
@@ -78,6 +82,15 @@
       </form>
       <div id="notifResult" class="mt-1 hidden"></div>
     </div>
+
+    <!-- Deletion Requests -->
+    <div class="card">
+      <h2>Deletion Requests</h2>
+      <p class="text-muted text-sm mt-1">Pending data deletion requests from users.</p>
+      <div id="deletionRequests" class="mt-1">
+        <p class="text-muted">Loading...</p>
+      </div>
+    </div>
   </div>
 
   <script src="/js/app.js"></script>
@@ -112,6 +125,54 @@
           select.appendChild(opt);
         }
       } catch {}
+
+      // Load deletion requests
+      async function loadDeletionRequests() {
+        const container = document.getElementById('deletionRequests');
+        try {
+          const { requests } = await App.fetchJSON('/admin/api/deletion-requests?status=pending');
+          document.getElementById('pendingDeletions').textContent = requests.length;
+          if (requests.length === 0) {
+            container.innerHTML = '<p class="text-muted">No pending requests.</p>';
+            return;
+          }
+          container.innerHTML = requests.map(r => `
+            <div class="card" style="padding:1rem; margin-bottom:0.75rem" data-id="${r.id}">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:0.5rem">
+                <div>
+                  <strong>${r.email}</strong>
+                  ${r.full_name ? `<span class="text-muted"> &mdash; ${r.full_name}</span>` : ''}
+                  ${r.participant_id ? `<a href="/admin/participants?search=${encodeURIComponent(r.email)}" class="text-sm" style="margin-left:0.5rem">View participant</a>` : ''}
+                  <div class="text-muted text-sm mt-1">${new Date(r.created_at).toLocaleDateString()}</div>
+                  ${r.reason ? `<div class="text-sm mt-1">${r.reason}</div>` : ''}
+                </div>
+                <div style="display:flex; gap:0.5rem">
+                  <button class="btn btn-primary btn-sm" onclick="resolveDeletion(${r.id}, 'completed')">Complete</button>
+                  <button class="btn btn-sm" onclick="resolveDeletion(${r.id}, 'rejected')">Reject</button>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        } catch (err) {
+          container.innerHTML = '<p class="text-muted">Failed to load deletion requests.</p>';
+        }
+      }
+
+      window.resolveDeletion = async function(id, status) {
+        const action = status === 'completed' ? 'complete' : 'reject';
+        if (!confirm(`Are you sure you want to ${action} this deletion request?`)) return;
+        try {
+          await App.fetchJSON(`/admin/api/deletion-requests/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status }),
+          });
+          loadDeletionRequests();
+        } catch (err) {
+          alert('Failed to update request: ' + err.message);
+        }
+      };
+
+      loadDeletionRequests();
 
       // Send notification form
       document.getElementById('notificationForm').addEventListener('submit', async (e) => {

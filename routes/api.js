@@ -898,6 +898,47 @@ router.get('/participants', isAuthenticated, async (req, res) => {
   }
 });
 
+// --- Data Deletion Requests ---
+router.post('/deletion-request', async (req, res) => {
+  try {
+    const { email, reason } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+
+    // Check for existing pending request
+    const existing = await db.query(
+      `SELECT 1 FROM deletion_requests WHERE email = $1 AND status = 'pending'`,
+      [trimmedEmail]
+    );
+    if (existing.rows.length > 0) {
+      return res.json({ success: true, message: 'Your data deletion request has been submitted. We will process it within 30 days.' });
+    }
+
+    // Look up participant for audit trail
+    const participant = await db.query(
+      'SELECT id, full_name FROM participants WHERE email = $1',
+      [trimmedEmail]
+    );
+    const participantId = participant.rows[0]?.id || null;
+    const fullName = participant.rows[0]?.full_name || null;
+
+    await db.query(
+      `INSERT INTO deletion_requests (participant_id, email, full_name, reason)
+       VALUES ($1, $2, $3, $4)`,
+      [participantId, trimmedEmail, fullName, reason?.trim() || null]
+    );
+
+    console.log(`[DELETION] Request submitted for ${trimmedEmail}`);
+    res.json({ success: true, message: 'Your data deletion request has been submitted. We will process it within 30 days.' });
+  } catch (err) {
+    console.error('Deletion request error:', err);
+    res.status(500).json({ error: 'Failed to submit deletion request' });
+  }
+});
+
 // --- Stats ---
 router.get('/stats', isAuthenticated, async (req, res) => {
   try {

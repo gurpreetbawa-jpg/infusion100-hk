@@ -102,6 +102,18 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS deletion_requests (
+  id SERIAL PRIMARY KEY,
+  participant_id INTEGER REFERENCES participants(id) ON DELETE SET NULL,
+  email VARCHAR(255) NOT NULL,
+  full_name VARCHAR(255),
+  reason TEXT,
+  status VARCHAR(20) DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ,
+  resolved_by INTEGER REFERENCES participants(id) ON DELETE SET NULL
+);
+
 -- Session store table for connect-pg-simple
 CREATE TABLE IF NOT EXISTS "session" (
   "sid" VARCHAR NOT NULL COLLATE "default" PRIMARY KEY,

@@ -77,6 +77,17 @@ async function run() {
       CHECK (follower_id != following_id)
     )`,
     `ALTER TABLE walks ADD COLUMN IF NOT EXISTS mentions JSONB`,
+    `CREATE TABLE IF NOT EXISTS deletion_requests (
+      id SERIAL PRIMARY KEY,
+      participant_id INTEGER REFERENCES participants(id) ON DELETE SET NULL,
+      email VARCHAR(255) NOT NULL,
+      full_name VARCHAR(255),
+      reason TEXT,
+      status VARCHAR(20) DEFAULT 'pending',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      resolved_at TIMESTAMPTZ,
+      resolved_by INTEGER REFERENCES participants(id) ON DELETE SET NULL
+    )`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {

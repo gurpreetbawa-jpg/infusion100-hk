@@ -181,4 +181,45 @@ router.post('/api/notifications/send', async (req, res) => {
   }
 });
 
+// --- Deletion Requests ---
+router.get('/api/deletion-requests', async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = 'SELECT * FROM deletion_requests';
+    const params = [];
+    if (status) {
+      params.push(status);
+      query += ' WHERE status = $1';
+    }
+    query += ' ORDER BY created_at DESC';
+    const result = await db.query(query, params);
+    res.json({ requests: result.rows });
+  } catch (err) {
+    console.error('Deletion requests list error:', err);
+    res.status(500).json({ error: 'Failed to fetch deletion requests' });
+  }
+});
+
+router.put('/api/deletion-requests/:id', async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['completed', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be completed or rejected' });
+    }
+    const result = await db.query(
+      `UPDATE deletion_requests SET status = $1, resolved_at = NOW(), resolved_by = $2
+       WHERE id = $3 RETURNING *`,
+      [status, req.user.id, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+    console.log(`[DELETION] Request ${req.params.id} marked as ${status} by ${req.user.full_name}`);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Update deletion request error:', err);
+    res.status(500).json({ error: 'Failed to update deletion request' });
+  }
+});
+
 module.exports = router;

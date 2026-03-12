@@ -18,6 +18,7 @@ router.get('/', sendPage('index.html'));
 router.get('/login', sendPage('login.html'));
 router.get('/leaderboard', ...gated('EVENT_DAY_TRACKING'), sendPage('leaderboard.html'));
 router.get('/privacy', sendPage('privacy.html'));
+router.get('/data-deletion', sendPage('data-deletion.html'));
 
 // Auth-required pages
 router.get('/register', isAuthenticated, sendPage('register.html'));
