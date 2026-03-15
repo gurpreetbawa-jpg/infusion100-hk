@@ -129,9 +129,13 @@ router.get('/api/stats', async (req, res) => {
 router.get('/api/notifications/subscribers', async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT COUNT(DISTINCT participant_id) FROM push_subscriptions'
+      `SELECT p.id, p.full_name, p.email, COUNT(ps.id) AS device_count
+       FROM push_subscriptions ps
+       JOIN participants p ON p.id = ps.participant_id
+       GROUP BY p.id, p.full_name, p.email
+       ORDER BY p.full_name`
     );
-    res.json({ count: parseInt(result.rows[0].count) });
+    res.json({ count: result.rows.length, subscribers: result.rows });
   } catch (err) {
     res.status(500).json({ error: 'Failed to count subscribers' });
   }
