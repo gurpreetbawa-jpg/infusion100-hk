@@ -6,7 +6,8 @@ async function runEngagementNotifications(webpush) {
   try {
     // Find new likes since each walk owner's last_engagement_notified_at, excluding self-likes
     const likesResult = await db.query(`
-      SELECT w.participant_id AS owner_id, w.id AS walk_id, COUNT(*) AS like_count
+      SELECT w.participant_id AS owner_id, w.id AS walk_id, COUNT(*) AS like_count,
+        array_agg(DISTINCT wl.participant_id) AS actor_ids
       FROM walk_likes wl
       JOIN walks w ON w.id = wl.walk_id
       JOIN participants p ON p.id = w.participant_id
@@ -17,7 +18,8 @@ async function runEngagementNotifications(webpush) {
 
     // Find new comments since each walk owner's last_engagement_notified_at, excluding self-comments
     const commentsResult = await db.query(`
-      SELECT w.participant_id AS owner_id, w.id AS walk_id, COUNT(*) AS comment_count
+      SELECT w.participant_id AS owner_id, w.id AS walk_id, COUNT(*) AS comment_count,
+        array_agg(DISTINCT wc.participant_id) AS actor_ids
       FROM walk_comments wc
       JOIN walks w ON w.id = wc.walk_id
       JOIN participants p ON p.id = w.participant_id
@@ -31,20 +33,22 @@ async function runEngagementNotifications(webpush) {
 
     for (const row of likesResult.rows) {
       if (!owners.has(row.owner_id)) {
-        owners.set(row.owner_id, { walks: new Set(), totalLikes: 0, totalComments: 0 });
+        owners.set(row.owner_id, { walks: new Set(), totalLikes: 0, totalComments: 0, actors: new Set() });
       }
       const entry = owners.get(row.owner_id);
       entry.walks.add(row.walk_id);
       entry.totalLikes += parseInt(row.like_count);
+      for (const id of row.actor_ids) entry.actors.add(id);
     }
 
     for (const row of commentsResult.rows) {
       if (!owners.has(row.owner_id)) {
-        owners.set(row.owner_id, { walks: new Set(), totalLikes: 0, totalComments: 0 });
+        owners.set(row.owner_id, { walks: new Set(), totalLikes: 0, totalComments: 0, actors: new Set() });
       }
       const entry = owners.get(row.owner_id);
       entry.walks.add(row.walk_id);
       entry.totalComments += parseInt(row.comment_count);
+      for (const id of row.actor_ids) entry.actors.add(id);
     }
 
     console.log(`[ENGAGEMENT] Running: found ${likesResult.rows.length} like entries, ${commentsResult.rows.length} comment entries across ${owners.size} user(s)`);
@@ -69,7 +73,17 @@ async function runEngagementNotifications(webpush) {
       if (totalLikes > 0) parts.push(`${totalLikes} like${totalLikes !== 1 ? 's' : ''}`);
       if (totalComments > 0) parts.push(`${totalComments} ${totalComments !== 1 ? 'comments' : 'comment'}`);
 
-      const body = `Your ${walkWord} got ${parts.join(' and ')}!`;
+      let fromSuffix = '';
+      if (data.actors.size === 1) {
+        const actorId = [...data.actors][0];
+        const actorResult = await db.query('SELECT full_name FROM participants WHERE id = $1', [actorId]);
+        if (actorResult.rows.length > 0 && actorResult.rows[0].full_name) {
+          const firstName = actorResult.rows[0].full_name.split(' ')[0];
+          fromSuffix = ` from ${firstName}`;
+        }
+      }
+
+      const body = `Your ${walkWord} got ${parts.join(' and ')}${fromSuffix}!`;
 
       // Deep link: single walk → walk page, multiple → dashboard
       const url = walkCount === 1
