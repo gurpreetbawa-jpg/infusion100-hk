@@ -311,6 +311,18 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   margin-bottom: 1rem;
 }
 
+.card .walk-card {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+  padding: 1rem 0;
+}
+
+.card .walk-card:last-child {
+  border-bottom: none;
+}
+
 .walk-card-header {
   display: flex;
   align-items: center;
