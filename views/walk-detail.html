@@ -25,6 +25,13 @@
     </div>
   </div>
 
+  <div class="bottom-sheet-backdrop" id="likesBackdrop" onclick="closeLikesSheet()"></div>
+  <div class="bottom-sheet" id="likesSheet">
+    <div class="bottom-sheet-handle"></div>
+    <div class="bottom-sheet-title">Likes</div>
+    <div class="bottom-sheet-list" id="likesList"></div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/app.js"></script>
   <script>
@@ -118,7 +125,7 @@
               <span class="text-muted" style="font-size:0.875rem">${walk.comments?.length || 0} comment(s)</span>
             </div>
             ${parseInt(walk.like_count) > 0 ? `
-            <div class="likes-summary" id="likesSummary">
+            <div class="likes-summary" id="likesSummary" style="cursor:pointer" onclick="showLikesSheet()">
               <div class="avatar-pile">
                 ${walk.recent_likers.map(l => App.renderAvatar(l, 'xs')).join('')}
               </div>
@@ -203,7 +210,7 @@
         const data = await App.fetchJSON(`/api/walks/${walkId}/likes`);
         const likers = data.likes.slice(0, 3);
         const html = `
-          <div class="likes-summary" id="likesSummary">
+          <div class="likes-summary" id="likesSummary" style="cursor:pointer" onclick="showLikesSheet()">
             <div class="avatar-pile">
               ${likers.map(l => App.renderAvatar(l, 'xs')).join('')}
             </div>
@@ -216,6 +223,46 @@
           document.querySelector('.walk-card-actions').insertAdjacentHTML('afterend', html);
         }
       } catch {}
+    }
+
+    async function showLikesSheet() {
+      const backdrop = document.getElementById('likesBackdrop');
+      const sheet = document.getElementById('likesSheet');
+      const list = document.getElementById('likesList');
+      list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
+      backdrop.classList.add('active');
+      requestAnimationFrame(() => sheet.classList.add('active'));
+      document.body.style.overflow = 'hidden';
+
+      try {
+        const [data, followsData] = await Promise.all([
+          App.fetchJSON(`/api/walks/${walkId}/likes`),
+          App.fetchJSON('/api/follows')
+        ]);
+        const user = await App.loadUser();
+        const followingSet = new Set((followsData.following || []).map(f => f.id));
+
+        list.innerHTML = data.likes.map(liker => {
+          const isSelf = user && user.id === liker.id;
+          const isFollowing = followingSet.has(liker.id);
+          return `
+            <div class="bottom-sheet-item">
+              ${App.renderAvatar(liker)}
+              <div class="bottom-sheet-item-info">
+                <div class="bottom-sheet-item-name">${App.escapeHtml(liker.full_name)}</div>
+              </div>
+              ${!isSelf ? `<button class="btn-follow${isFollowing ? ' following' : ''}" data-follow-id="${liker.id}" onclick="toggleFollow(${liker.id}, this)">${isFollowing ? 'Following' : 'Follow'}</button>` : ''}
+            </div>`;
+        }).join('');
+      } catch {
+        list.innerHTML = '<p class="text-muted" style="text-align:center;padding:1rem">Failed to load likes.</p>';
+      }
+    }
+
+    function closeLikesSheet() {
+      document.getElementById('likesSheet').classList.remove('active');
+      document.getElementById('likesBackdrop').classList.remove('active');
+      document.body.style.overflow = '';
     }
 
     async function postComment(e) {
