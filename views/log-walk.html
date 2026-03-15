@@ -45,8 +45,11 @@
         </div>
 
         <div class="form-group">
-          <label for="duration">Duration (minutes)</label>
-          <input type="number" id="duration" class="form-control" min="0" inputmode="numeric" placeholder="e.g. 90">
+          <label>Duration</label>
+          <div class="flex gap-1">
+            <input type="number" id="durationHours" class="form-control" min="0" max="23" inputmode="numeric" placeholder="Hours" style="flex:1">
+            <input type="number" id="durationMins" class="form-control" min="0" max="59" inputmode="numeric" placeholder="Minutes" style="flex:1">
+          </div>
         </div>
 
         <div class="form-group">
@@ -280,7 +283,9 @@
         const formData = new FormData();
         formData.append('date', fullDate);
         formData.append('distance_km', distKm.toFixed(2));
-        formData.append('duration_mins', document.getElementById('duration').value || '');
+        const dh = parseInt(document.getElementById('durationHours').value) || 0;
+        const dm = parseInt(document.getElementById('durationMins').value) || 0;
+        formData.append('duration_mins', (dh || dm) ? dh * 60 + dm : '');
         formData.append('caption', document.getElementById('caption').value);
         formData.append('description', document.getElementById('description').value);
         if (mentions.length > 0) {

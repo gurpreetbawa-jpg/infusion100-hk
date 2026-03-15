@@ -67,8 +67,11 @@
                   <input type="number" id="editDistance" class="form-control" step="any" min="0" inputmode="decimal" value="${walk.distance_km}" required>
                 </div>
                 <div class="form-group">
-                  <label>Duration (minutes)</label>
-                  <input type="number" id="editDuration" class="form-control" min="0" inputmode="numeric" value="${walk.duration_mins || ''}">
+                  <label>Duration</label>
+                  <div class="flex gap-1">
+                    <input type="number" id="editDurationHours" class="form-control" min="0" max="23" inputmode="numeric" placeholder="Hours" value="${walk.duration_mins ? Math.floor(walk.duration_mins / 60) : ''}" style="flex:1">
+                    <input type="number" id="editDurationMins" class="form-control" min="0" max="59" inputmode="numeric" placeholder="Minutes" value="${walk.duration_mins ? walk.duration_mins % 60 : ''}" style="flex:1">
+                  </div>
                 </div>
                 <div class="form-group">
                   <label>Caption</label>
@@ -252,7 +255,9 @@
         const form = new FormData();
         form.append('date', fullDate);
         form.append('distance_km', document.getElementById('editDistance').value);
-        form.append('duration_mins', document.getElementById('editDuration').value || '');
+        const edh = parseInt(document.getElementById('editDurationHours').value) || 0;
+        const edm = parseInt(document.getElementById('editDurationMins').value) || 0;
+        form.append('duration_mins', (edh || edm) ? edh * 60 + edm : '');
         form.append('caption', document.getElementById('editCaption').value);
         form.append('description', document.getElementById('editDescription').value);
         const imageFile = document.getElementById('editImage').files[0];
