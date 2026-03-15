@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v45';
+const CACHE_VERSION = 'v48';
 const STATIC_CACHE = `infusion100-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `infusion100-dynamic-${CACHE_VERSION}`;
 
@@ -59,7 +59,7 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin requests
   if (url.origin !== location.origin) return;
 
-  // Stale-while-revalidate for static assets — serve cached instantly, fetch update in background
+  // Cache-first for static assets — CACHE_VERSION bump on deploy triggers re-precache
   if (
     request.destination === 'style' ||
     request.destination === 'script' ||
@@ -67,13 +67,12 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/icons/')
   ) {
     event.respondWith(
-      caches.open(STATIC_CACHE).then((cache) =>
-        cache.match(request).then((cached) => {
-          const fetchPromise = fetch(request).then((response) => {
+      caches.match(request).then((cached) =>
+        cached || fetch(request).then((response) => {
+          return caches.open(STATIC_CACHE).then((cache) => {
             cache.put(request, response.clone());
             return response;
           });
-          return cached || fetchPromise;
         })
       )
     );

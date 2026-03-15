@@ -31,6 +31,10 @@ const App = {
       this.user = null;
     }
     this.buildNav();
+    if (App._splashEl) {
+      App._splashEl.classList.add('splash-hide');
+      setTimeout(() => { if (App._splashEl) { App._splashEl.remove(); App._splashEl = null; } }, 300);
+    }
     if (typeof showIOSInstallBanner === 'function') showIOSInstallBanner();
     return this.user;
   },
@@ -213,6 +217,21 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
 
+// PWA splash screen — only in standalone mode
+(function () {
+  var isStandalone = window.navigator.standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches;
+  if (!isStandalone) return;
+  var splash = document.createElement('div');
+  splash.className = 'pwa-splash';
+  splash.innerHTML = '<div class="pwa-splash-brand">Infusion<strong>100</strong></div><div class="spinner"></div>';
+  document.body.appendChild(splash);
+  App._splashEl = splash;
+  setTimeout(function () {
+    if (App._splashEl) { App._splashEl.classList.add('splash-hide'); setTimeout(function () { if (App._splashEl) { App._splashEl.remove(); App._splashEl = null; } }, 300); }
+  }, 5000);
+})();
+
 // iOS "Add to Home Screen" install banner — call after App.loadUser()
 function showIOSInstallBanner() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -242,6 +261,25 @@ function showIOSInstallBanner() {
 
   document.body.appendChild(banner);
 }
+
+// Offline indicator
+(function () {
+  var bar = document.createElement('div');
+  bar.className = 'offline-bar';
+  bar.textContent = 'You are offline';
+  var navbar = document.querySelector('.navbar');
+  if (navbar && navbar.nextSibling) {
+    navbar.parentNode.insertBefore(bar, navbar.nextSibling);
+  } else if (navbar) {
+    navbar.parentNode.appendChild(bar);
+  } else {
+    document.body.prepend(bar);
+  }
+  function update() { bar.classList.toggle('visible', !navigator.onLine); }
+  update();
+  window.addEventListener('online', update);
+  window.addEventListener('offline', update);
+})();
 
 // Mobile nav toggle
 document.addEventListener('DOMContentLoaded', () => {
