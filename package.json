@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "db:init": "node db/init.js",
     "db:reset": "node db/init.js --reset",
+    "db:seed": "node db/seed-test-data.js",
     "setup": "bash setup.sh"
   },
   "keywords": [],
