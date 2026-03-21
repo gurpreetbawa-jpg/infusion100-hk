@@ -90,6 +90,9 @@
     let map;
     let followingIds = new Set();
     let filterMode = 'everyone';
+    let pingBuffer = [];
+    let flushInterval = null;
+    const FLUSH_INTERVAL_MS = 60000;
 
     async function init() {
       const user = await App.loadUser();
@@ -215,15 +218,16 @@
           try { await navigator.wakeLock.request('screen'); } catch {}
         }
 
-        // Start watching
+        // Start watching — buffer positions and flush every 60s
         watchId = navigator.geolocation.watchPosition(
-          sendLocation,
+          bufferLocation,
           (err) => console.warn('GPS error:', err.message),
           { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 }
         );
 
-        // Also send first location immediately
-        sendLocation(pos);
+        bufferLocation(pos);
+        flushPings();
+        flushInterval = setInterval(flushPings, FLUSH_INTERVAL_MS);
 
       } catch (err) {
         let msg = 'Location access denied. Please enable location services and try again.';
@@ -233,19 +237,26 @@
       }
     }
 
-    async function sendLocation(position) {
+    function bufferLocation(position) {
+      pingBuffer.push({ lat: position.coords.latitude, lng: position.coords.longitude });
+      document.getElementById('pingCount').textContent = pingCount + pingBuffer.length;
+      document.getElementById('lastPing').textContent = new Date().toLocaleTimeString();
+    }
+
+    async function flushPings() {
+      if (pingBuffer.length === 0) return;
+      const pings = pingBuffer.splice(0);
       try {
-        await App.fetchJSON('/api/location', {
+        await App.fetchJSON('/api/location/batch', {
           method: 'POST',
-          body: JSON.stringify({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          }),
+          body: JSON.stringify({ pings }),
         });
-        pingCount++;
+        pingCount += pings.length;
         document.getElementById('pingCount').textContent = pingCount;
-        document.getElementById('lastPing').textContent = new Date().toLocaleTimeString();
-      } catch {}
+      } catch {
+        // Put them back for next flush
+        pingBuffer.unshift(...pings);
+      }
     }
 
     async function stopTracking() {
@@ -253,6 +264,8 @@
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
+      if (flushInterval) { clearInterval(flushInterval); flushInterval = null; }
+      await flushPings();
       await App.fetchJSON('/api/tracking/stop', { method: 'POST' });
       hideTrackingUI();
     }

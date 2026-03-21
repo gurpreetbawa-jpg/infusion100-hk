@@ -298,6 +298,45 @@ router.post('/location', isAuthenticated, async (req, res) => {
   }
 });
 
+router.post('/location/batch', isAuthenticated, async (req, res) => {
+  try {
+    const { pings, practice_walk_id } = req.body;
+    if (!Array.isArray(pings) || pings.length === 0) {
+      return res.status(400).json({ error: 'pings array required' });
+    }
+
+    if (practice_walk_id) {
+      if (!(await verifyPracticeParticipant(req.user.id, practice_walk_id))) {
+        return res.status(403).json({ error: 'Not a participant of this practice walk' });
+      }
+    } else if (!features.EVENT_DAY_TRACKING && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Event day tracking is not enabled' });
+    }
+
+    const values = [];
+    const placeholders = [];
+    let idx = 1;
+    for (const p of pings) {
+      if (!p.lat || !p.lng) continue;
+      placeholders.push(`($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3})`);
+      values.push(req.user.id, p.lat, p.lng, practice_walk_id || null);
+      idx += 4;
+    }
+
+    if (placeholders.length > 0) {
+      await db.query(
+        `INSERT INTO location_pings (participant_id, lat, lng, practice_walk_id) VALUES ${placeholders.join(', ')}`,
+        values
+      );
+    }
+
+    res.json({ success: true, count: placeholders.length });
+  } catch (err) {
+    console.error('Location batch error:', err);
+    res.status(500).json({ error: 'Failed to save locations' });
+  }
+});
+
 router.post('/tracking/start', isAuthenticated, async (req, res) => {
   try {
     const { practice_walk_id } = req.body;
