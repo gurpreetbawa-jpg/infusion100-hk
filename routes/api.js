@@ -460,7 +460,20 @@ router.get('/tracking/status', isAuthenticated, async (req, res) => {
         [req.user.id]
       );
     }
-    res.json({ active: result.rows.length > 0, session: result.rows[0] || null });
+    if (result.rows.length > 0) {
+      const session = result.rows[0];
+      const countParams = [req.user.id, session.started_at];
+      let countSql = `SELECT COUNT(*) FROM location_pings WHERE participant_id = $1 AND recorded_at >= $2`;
+      if (practice_walk_id) {
+        countSql += ` AND practice_walk_id = $3`;
+        countParams.push(practice_walk_id);
+      } else {
+        countSql += ` AND practice_walk_id IS NULL`;
+      }
+      const countResult = await db.query(countSql, countParams);
+      return res.json({ active: true, session, ping_count: parseInt(countResult.rows[0].count) });
+    }
+    res.json({ active: false, session: null });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get tracking status' });
   }

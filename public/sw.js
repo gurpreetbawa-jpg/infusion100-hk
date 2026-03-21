@@ -1,10 +1,11 @@
-const CACHE_VERSION = 'v55';
+const CACHE_VERSION = 'v56';
 const STATIC_CACHE = `infusion100-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `infusion100-dynamic-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
   '/css/style.css',
   '/js/app.js',
+  '/js/gps-tracker.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/manifest.json',
