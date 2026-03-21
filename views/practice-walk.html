@@ -20,8 +20,9 @@
   </nav>
 
   <div id="trackingBanner" class="tracking-banner hidden">
-    <span class="pulse"></span>
+    <span class="pulse" id="bannerPulse"></span>
     <span id="bannerText">GPS tracking active</span>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white" id="bannerPauseBtn" onclick="pauseTracking()">Pause</button>
     <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white" onclick="stopTracking()">Stop</button>
   </div>
 
@@ -52,6 +53,12 @@
         <button class="btn btn-primary btn-lg btn-block" id="startBtn" onclick="startTracking()">
           Start Tracking
         </button>
+        <div id="pausedControls" class="hidden">
+          <div class="flex gap-1">
+            <button class="btn btn-primary btn-lg" style="flex:1" onclick="resumeTracking()">Resume Tracking</button>
+            <button class="btn btn-outline btn-lg" onclick="stopTracking()">Stop</button>
+          </div>
+        </div>
       </div>
       <div id="trackingInfo" class="hidden mt-2">
         <div class="stats-grid">
@@ -113,6 +120,7 @@
     const practiceWalkId = parseInt(window.location.pathname.split('/').pop());
     let watchId = null;
     let pingCount = 0;
+    let paused = false;
     let map, routeMap;
     let pendingRoute = null;
     let pingBuffer = [];
@@ -235,15 +243,9 @@
           try { await navigator.wakeLock.request('screen'); } catch {}
         }
 
-        watchId = navigator.geolocation.watchPosition(
-          bufferLocation,
-          (err) => console.warn('GPS error:', err.message),
-          { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 }
-        );
-
+        startGpsWatch();
         bufferLocation(pos);
         flushPings();
-        flushInterval = setInterval(flushPings, FLUSH_INTERVAL_MS);
       } catch (err) {
         let msg = 'Location access denied. Please enable location services and try again.';
         if (err.code === 2) msg = 'Location unavailable. Please check your GPS settings.';
@@ -273,13 +275,40 @@
       }
     }
 
-    async function stopTracking() {
+    function stopGpsWatch() {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
       if (flushInterval) { clearInterval(flushInterval); flushInterval = null; }
+    }
+
+    function startGpsWatch() {
+      watchId = navigator.geolocation.watchPosition(
+        bufferLocation,
+        (err) => console.warn('GPS error:', err.message),
+        { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 }
+      );
+      flushInterval = setInterval(flushPings, FLUSH_INTERVAL_MS);
+    }
+
+    async function pauseTracking() {
+      stopGpsWatch();
       await flushPings();
+      paused = true;
+      showPausedUI();
+    }
+
+    async function resumeTracking() {
+      paused = false;
+      startGpsWatch();
+      showTrackingUI();
+    }
+
+    async function stopTracking() {
+      stopGpsWatch();
+      await flushPings();
+      paused = false;
       try {
         const result = await App.fetchJSON('/api/tracking/stop', {
           method: 'POST',
@@ -298,12 +327,28 @@
 
     function showTrackingUI() {
       document.getElementById('trackingBanner').classList.remove('hidden');
+      document.getElementById('bannerPulse').classList.add('pulse');
+      document.getElementById('bannerText').textContent = 'GPS tracking active';
+      document.getElementById('bannerPauseBtn').textContent = 'Pause';
+      document.getElementById('bannerPauseBtn').onclick = pauseTracking;
       document.getElementById('trackingInfo').classList.remove('hidden');
       document.getElementById('startBtn').classList.add('hidden');
+      document.getElementById('pausedControls').classList.add('hidden');
+    }
+
+    function showPausedUI() {
+      document.getElementById('trackingBanner').classList.remove('hidden');
+      document.getElementById('bannerPulse').classList.remove('pulse');
+      document.getElementById('bannerText').textContent = 'GPS tracking paused';
+      document.getElementById('bannerPauseBtn').textContent = 'Resume';
+      document.getElementById('bannerPauseBtn').onclick = resumeTracking;
+      document.getElementById('startBtn').classList.add('hidden');
+      document.getElementById('pausedControls').classList.remove('hidden');
     }
 
     function hideTrackingUI() {
       document.getElementById('trackingBanner').classList.add('hidden');
+      document.getElementById('pausedControls').classList.add('hidden');
       document.getElementById('startBtn').classList.remove('hidden');
       document.getElementById('startBtn').textContent = 'Resume Tracking';
     }
