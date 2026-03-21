@@ -106,9 +106,9 @@
 
     const now = new Date();
     const dateInput = document.getElementById('date');
-    dateInput.valueAsDate = now;
-    dateInput.max = now.toISOString().split('T')[0];
-    document.getElementById('time').value = now.toTimeString().slice(0, 5);
+    dateInput.value = App.localDateStr(now);
+    dateInput.max = App.localDateStr(now);
+    document.getElementById('time').value = App.localTimeStr(now);
 
     function setUnit(u) {
       unit = u;
@@ -278,7 +278,7 @@
 
         const dateVal = document.getElementById('date').value;
         const timeVal = document.getElementById('time').value;
-        const fullDate = timeVal ? `${dateVal}T${timeVal}` : dateVal;
+        const fullDate = App.appendTzOffset(timeVal ? `${dateVal}T${timeVal}` : `${dateVal}T00:00`);
 
         const formData = new FormData();
         formData.append('date', fullDate);

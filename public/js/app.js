@@ -78,6 +78,30 @@ const App = {
     return App.formatDate(dateStr);
   },
 
+  localDateStr(date) {
+    const d = date || new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  },
+
+  localTimeStr(date) {
+    const d = date || new Date();
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    return `${h}:${m}`;
+  },
+
+  appendTzOffset(dateTimeStr) {
+    const offset = new Date().getTimezoneOffset();
+    const sign = offset <= 0 ? '+' : '-';
+    const abs = Math.abs(offset);
+    const h = String(Math.floor(abs / 60)).padStart(2, '0');
+    const m = String(abs % 60).padStart(2, '0');
+    return `${dateTimeStr}${sign}${h}:${m}`;
+  },
+
   getInitials(name) {
     if (!name) return '?';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
