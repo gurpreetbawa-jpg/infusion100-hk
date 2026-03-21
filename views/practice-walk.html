@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Practice Walk - Infusion100</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1A1F36">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">Infusion<span class="accent">100</span></a>
+    <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
+    <ul class="navbar-links" id="navLinks"></ul>
+  </nav>
+
+  <div id="trackingBanner" class="tracking-banner hidden">
+    <span class="pulse"></span>
+    <span id="bannerText">GPS tracking active</span>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white" onclick="stopTracking()">Stop</button>
+  </div>
+
+  <div class="container">
+    <div id="alertBox"></div>
+
+    <div class="page-header">
+      <div>
+        <h1 id="walkTitle">Practice Walk</h1>
+        <span class="text-muted" id="walkDate"></span>
+      </div>
+      <a href="/dashboard" class="btn btn-outline btn-sm">Back</a>
+    </div>
+
+    <!-- Participants -->
+    <div class="card">
+      <h2>Walkers</h2>
+      <div id="rosterList" class="mt-1">
+        <div class="loading-overlay"><span class="spinner"></span> Loading...</div>
+      </div>
+    </div>
+
+    <!-- GPS Tracking -->
+    <div class="card">
+      <h2>GPS Tracking</h2>
+      <p class="text-muted mt-1 mb-2">Track your location so other walkers can see you on the map. Keep this page open while walking.</p>
+      <div id="trackingControls">
+        <button class="btn btn-primary btn-lg btn-block" id="startBtn" onclick="startTracking()">
+          Start Tracking
+        </button>
+      </div>
+      <div id="trackingInfo" class="hidden mt-2">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="pingCount">0</div>
+            <div class="stat-label">Location Pings Sent</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="lastPing">--</div>
+            <div class="stat-label">Last Update</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div class="card">
+      <h2>Live Map</h2>
+      <div id="practiceMap" class="map-container mt-1"></div>
+    </div>
+  </div>
+
+  <!-- Walk Log Prompt Modal -->
+  <div class="modal-backdrop" id="walkLogModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Save as Walk?</h2>
+        <button class="modal-close" onclick="dismissWalkLog()">&times;</button>
+      </div>
+      <div id="routeSummary" class="mb-2">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="routeDistance">--</div>
+            <div class="stat-label">Distance</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="routeDuration">--</div>
+            <div class="stat-label">Duration</div>
+          </div>
+        </div>
+        <div id="routeMapContainer" class="map-container mt-1" style="height:200px"></div>
+      </div>
+      <form id="walkLogForm">
+        <div class="form-group">
+          <label>Caption (optional)</label>
+          <input type="text" id="walkCaption" class="form-control" placeholder="How was the walk?">
+        </div>
+        <div class="flex gap-1">
+          <button type="submit" class="btn btn-primary">Save Walk</button>
+          <button type="button" class="btn btn-outline" onclick="dismissWalkLog()">Dismiss</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    const practiceWalkId = parseInt(window.location.pathname.split('/').pop());
+    let watchId = null;
+    let pingCount = 0;
+    let map, routeMap;
+    let pendingRoute = null;
+
+    async function init() {
+      const user = await App.loadUser();
+      if (!user) return window.location.href = '/login';
+
+      try {
+        const walk = await App.fetchJSON(`/api/practice-walks/${practiceWalkId}`);
+        document.getElementById('walkTitle').textContent = walk.title;
+        const date = new Date(walk.walk_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        const time = walk.walk_time ? ' at ' + walk.walk_time.substring(0, 5) : '';
+        document.getElementById('walkDate').textContent = date + time;
+
+        // Roster
+        document.getElementById('rosterList').innerHTML = walk.participants.map(p => `
+          <div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border)">
+            ${p.avatar_url ? `<img src="${p.avatar_url}" alt="" style="width:32px;height:32px;border-radius:50%">` : '<div style="width:32px;height:32px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600">' + (p.full_name || '?')[0] + '</div>'}
+            <span>${App.escapeHtml(p.full_name || 'Unknown')}</span>
+            ${p.id === user.id ? '<span class="badge badge-info" style="margin-left:auto">You</span>' : ''}
+          </div>
+        `).join('');
+      } catch (err) {
+        App.showAlert(document.getElementById('alertBox'), 'Failed to load practice walk: ' + err.message, 'danger');
+        return;
+      }
+
+      // Init map
+      map = L.map('practiceMap').setView([51.48, -0.12], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+
+      // Check if already tracking
+      try {
+        const status = await App.fetchJSON(`/api/tracking/status?practice_walk_id=${practiceWalkId}`);
+        if (status.active) showTrackingUI();
+      } catch {}
+
+      refreshParticipants();
+      setInterval(refreshParticipants, 30000);
+    }
+
+    const participantMarkers = {};
+
+    async function refreshParticipants() {
+      try {
+        const participants = await App.fetchJSON(`/api/locations/live?practice_walk_id=${practiceWalkId}`);
+        const user = App.user;
+        const visibleIds = new Set(participants.map(p => p.id));
+
+        Object.keys(participantMarkers).forEach(id => {
+          if (!visibleIds.has(parseInt(id))) {
+            map.removeLayer(participantMarkers[id]);
+            delete participantMarkers[id];
+          }
+        });
+
+        participants.forEach(p => {
+          const isMe = user && p.id === user.id;
+          const isActive = p.tracking_status === 'active';
+          const color = isMe ? '#FC4C02' : (isActive ? '#10B981' : '#6B7280');
+          const firstName = (p.full_name || 'Unknown').split(' ')[0];
+
+          if (participantMarkers[p.id]) {
+            participantMarkers[p.id].setLatLng([p.lat, p.lng]);
+            participantMarkers[p.id].setStyle({ fillColor: color, color: color });
+          } else {
+            const marker = L.circleMarker([p.lat, p.lng], {
+              radius: isMe ? 12 : 9, fillColor: color, color: color, weight: 2, fillOpacity: 0.9
+            }).addTo(map);
+
+            marker.bindPopup(`
+              <div style="text-align:center">
+                <strong>${App.escapeHtml(p.full_name || 'Unknown')}</strong>${isMe ? ' (You)' : ''}<br>
+                <span style="color:${color}">${isActive ? 'Walking' : 'Finished'}</span><br>
+                <small>Last update: ${App.formatRelative(p.recorded_at)}</small>
+              </div>
+            `);
+
+            marker.bindTooltip(isMe ? 'You' : firstName, {
+              permanent: true, direction: 'top', offset: [0, -10],
+              className: 'participant-label' + (isMe ? ' participant-label-me' : '')
+            });
+
+            participantMarkers[p.id] = marker;
+          }
+        });
+
+        if (participants.length > 0) {
+          const bounds = participants.map(p => [p.lat, p.lng]);
+          map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+        }
+      } catch {}
+    }
+
+    async function startTracking() {
+      if (!('geolocation' in navigator)) {
+        App.showAlert(document.getElementById('alertBox'), 'Geolocation is not supported by your browser.', 'danger');
+        return;
+      }
+
+      try {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true, timeout: 10000
+          });
+        });
+
+        await App.fetchJSON('/api/tracking/start', {
+          method: 'POST',
+          body: JSON.stringify({ practice_walk_id: practiceWalkId })
+        });
+        showTrackingUI();
+
+        if ('wakeLock' in navigator) {
+          try { await navigator.wakeLock.request('screen'); } catch {}
+        }
+
+        watchId = navigator.geolocation.watchPosition(
+          sendLocation,
+          (err) => console.warn('GPS error:', err.message),
+          { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 }
+        );
+
+        sendLocation(pos);
+      } catch (err) {
+        let msg = 'Location access denied. Please enable location services and try again.';
+        if (err.code === 2) msg = 'Location unavailable. Please check your GPS settings.';
+        if (err.code === 3) msg = 'Location request timed out. Please try again.';
+        App.showAlert(document.getElementById('alertBox'), msg, 'danger');
+      }
+    }
+
+    async function sendLocation(position) {
+      try {
+        await App.fetchJSON('/api/location', {
+          method: 'POST',
+          body: JSON.stringify({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            practice_walk_id: practiceWalkId,
+          }),
+        });
+        pingCount++;
+        document.getElementById('pingCount').textContent = pingCount;
+        document.getElementById('lastPing').textContent = new Date().toLocaleTimeString();
+      } catch {}
+    }
+
+    async function stopTracking() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      try {
+        const result = await App.fetchJSON('/api/tracking/stop', {
+          method: 'POST',
+          body: JSON.stringify({ practice_walk_id: practiceWalkId })
+        });
+        hideTrackingUI();
+
+        if (result.route && result.route.distance_km > 0) {
+          pendingRoute = result.route;
+          showWalkLogPrompt(result.route);
+        }
+      } catch (err) {
+        App.showAlert(document.getElementById('alertBox'), 'Failed to stop tracking: ' + err.message, 'danger');
+      }
+    }
+
+    function showTrackingUI() {
+      document.getElementById('trackingBanner').classList.remove('hidden');
+      document.getElementById('trackingInfo').classList.remove('hidden');
+      document.getElementById('startBtn').classList.add('hidden');
+    }
+
+    function hideTrackingUI() {
+      document.getElementById('trackingBanner').classList.add('hidden');
+      document.getElementById('startBtn').classList.remove('hidden');
+      document.getElementById('startBtn').textContent = 'Resume Tracking';
+    }
+
+    function showWalkLogPrompt(route) {
+      document.getElementById('routeDistance').textContent = App.formatDistance(route.distance_km);
+      document.getElementById('routeDuration').textContent = App.formatDuration(route.duration_mins);
+      document.getElementById('walkLogModal').classList.add('active');
+
+      // Render mini route map
+      setTimeout(() => {
+        if (routeMap) routeMap.remove();
+        routeMap = L.map('routeMapContainer').setView([51.48, -0.12], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(routeMap);
+
+        if (route.points && route.points.length > 1) {
+          const coords = route.points.map(p => [p.lat, p.lng]);
+          L.polyline(coords, { color: '#FC4C02', weight: 3 }).addTo(routeMap);
+          routeMap.fitBounds(coords, { padding: [20, 20] });
+        }
+      }, 100);
+    }
+
+    function dismissWalkLog() {
+      document.getElementById('walkLogModal').classList.remove('active');
+      pendingRoute = null;
+      if (routeMap) { routeMap.remove(); routeMap = null; }
+    }
+
+    document.getElementById('walkLogForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!pendingRoute) return;
+
+      const caption = document.getElementById('walkCaption').value.trim() || 'Practice Walk';
+      try {
+        const formData = new FormData();
+        formData.append('date', new Date().toISOString());
+        formData.append('distance_km', pendingRoute.distance_km);
+        formData.append('duration_mins', pendingRoute.duration_mins);
+        formData.append('caption', caption);
+        formData.append('polyline', pendingRoute.polyline);
+
+        const resp = await fetch('/api/walks', {
+          method: 'POST',
+          body: formData,
+        });
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.error || 'Failed to save walk');
+        }
+
+        dismissWalkLog();
+        App.showAlert(document.getElementById('alertBox'), 'Walk saved to your activity log!', 'success');
+      } catch (err) {
+        App.showAlert(document.getElementById('alertBox'), 'Failed to save walk: ' + err.message, 'danger');
+      }
+    });
+
+    init();
+  </script>
+  <style>
+    .participant-label {
+      background: var(--primary) !important;
+      color: white !important;
+      border: none !important;
+      border-radius: 4px !important;
+      padding: 2px 6px !important;
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+    }
+    .participant-label::before { display: none !important; }
+    .participant-label-me { background: #FC4C02 !important; }
+  </style>
+</body>
+</html>

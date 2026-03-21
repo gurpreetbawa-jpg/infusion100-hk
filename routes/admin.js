@@ -226,4 +226,122 @@ router.put('/api/deletion-requests/:id', async (req, res) => {
   }
 });
 
+// --- Practice Walks ---
+router.get('/api/practice-walks', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT pw.*,
+        (SELECT COUNT(*) FROM practice_walk_participants WHERE practice_walk_id = pw.id) AS participant_count
+      FROM practice_walks pw
+      ORDER BY pw.walk_date DESC, pw.walk_time DESC NULLS LAST
+    `);
+    res.json({ practice_walks: result.rows });
+  } catch (err) {
+    console.error('Admin practice walks list error:', err);
+    res.status(500).json({ error: 'Failed to fetch practice walks' });
+  }
+});
+
+router.get('/api/practice-walks/:id', async (req, res) => {
+  try {
+    const walk = await db.query('SELECT * FROM practice_walks WHERE id = $1', [req.params.id]);
+    if (walk.rows.length === 0) return res.status(404).json({ error: 'Practice walk not found' });
+
+    const participants = await db.query(`
+      SELECT p.id, p.full_name, p.email, p.avatar_url
+      FROM practice_walk_participants pwp
+      JOIN participants p ON p.id = pwp.participant_id
+      WHERE pwp.practice_walk_id = $1
+      ORDER BY p.full_name
+    `, [req.params.id]);
+
+    res.json({ ...walk.rows[0], participants: participants.rows });
+  } catch (err) {
+    console.error('Admin practice walk detail error:', err);
+    res.status(500).json({ error: 'Failed to fetch practice walk' });
+  }
+});
+
+router.post('/api/practice-walks', async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const { title, walk_date, walk_time, participant_ids } = req.body;
+    if (!title || !walk_date) return res.status(400).json({ error: 'Title and date are required' });
+
+    await client.query('BEGIN');
+    const result = await client.query(
+      'INSERT INTO practice_walks (title, walk_date, walk_time, created_by) VALUES ($1, $2, $3, $4) RETURNING *',
+      [title, walk_date, walk_time || null, req.user.id]
+    );
+    const pw = result.rows[0];
+
+    if (participant_ids && participant_ids.length > 0) {
+      const values = participant_ids.map((pid, i) => `($1, $${i + 2})`).join(', ');
+      await client.query(
+        `INSERT INTO practice_walk_participants (practice_walk_id, participant_id) VALUES ${values}`,
+        [pw.id, ...participant_ids]
+      );
+    }
+
+    await client.query('COMMIT');
+    console.log(`[PRACTICE] Created: "${title}" on ${walk_date} by ${req.user.full_name}`);
+    res.json(pw);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Create practice walk error:', err);
+    res.status(500).json({ error: 'Failed to create practice walk' });
+  } finally {
+    client.release();
+  }
+});
+
+router.put('/api/practice-walks/:id', async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const { title, walk_date, walk_time, participant_ids } = req.body;
+    if (!title || !walk_date) return res.status(400).json({ error: 'Title and date are required' });
+
+    await client.query('BEGIN');
+    const result = await client.query(
+      'UPDATE practice_walks SET title = $1, walk_date = $2, walk_time = $3 WHERE id = $4 RETURNING *',
+      [title, walk_date, walk_time || null, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Practice walk not found' });
+    }
+
+    await client.query('DELETE FROM practice_walk_participants WHERE practice_walk_id = $1', [req.params.id]);
+    if (participant_ids && participant_ids.length > 0) {
+      const values = participant_ids.map((pid, i) => `($1, $${i + 2})`).join(', ');
+      await client.query(
+        `INSERT INTO practice_walk_participants (practice_walk_id, participant_id) VALUES ${values}`,
+        [req.params.id, ...participant_ids]
+      );
+    }
+
+    await client.query('COMMIT');
+    console.log(`[PRACTICE] Updated: "${title}" (id:${req.params.id})`);
+    res.json(result.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Update practice walk error:', err);
+    res.status(500).json({ error: 'Failed to update practice walk' });
+  } finally {
+    client.release();
+  }
+});
+
+router.delete('/api/practice-walks/:id', async (req, res) => {
+  try {
+    const result = await db.query('DELETE FROM practice_walks WHERE id = $1 RETURNING id', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Practice walk not found' });
+    console.log(`[PRACTICE] Deleted: id:${req.params.id}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete practice walk error:', err);
+    res.status(500).json({ error: 'Failed to delete practice walk' });
+  }
+});
+
 module.exports = router;

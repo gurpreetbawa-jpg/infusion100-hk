@@ -30,9 +30,12 @@ router.get('/stats', (req, res) => res.redirect('/dashboard'));
 router.get('/walkers', isAuthenticated, isProfileComplete, sendPage('walkers.html'));
 router.get('/event', ...gated('EVENT_DAY_TRACKING', isAuthenticated, isProfileComplete), sendPage('event.html'));
 
+router.get('/practice-walk/:id', isAuthenticated, isProfileComplete, sendPage('practice-walk.html'));
+
 // Admin pages
 router.get('/admin', isAdmin, sendPage('admin.html'));
 router.get('/admin/participants', isAdmin, sendPage('admin-participants.html'));
+router.get('/admin/practice-walks', isAdmin, sendPage('admin-practice-walks.html'));
 router.get('/admin/map', isAdmin, sendPage('admin-map.html'));
 
 module.exports = router;

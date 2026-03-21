@@ -13,6 +13,54 @@ function gated(toggle, ...fallback) {
   return features[toggle] ? fallback : [isAdmin];
 }
 
+// --- Geo Utilities ---
+function haversineDistance(points) {
+  const R = 6371;
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    const dLat = (points[i].lat - points[i - 1].lat) * Math.PI / 180;
+    const dLng = (points[i].lng - points[i - 1].lng) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(points[i - 1].lat * Math.PI / 180) * Math.cos(points[i].lat * Math.PI / 180) *
+      Math.sin(dLng / 2) ** 2;
+    total += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+  return total;
+}
+
+function encodePolyline(points) {
+  let encoded = '';
+  let prevLat = 0, prevLng = 0;
+  for (const p of points) {
+    const lat = Math.round(p.lat * 1e5);
+    const lng = Math.round(p.lng * 1e5);
+    encoded += encodeSignedValue(lat - prevLat);
+    encoded += encodeSignedValue(lng - prevLng);
+    prevLat = lat;
+    prevLng = lng;
+  }
+  return encoded;
+}
+
+function encodeSignedValue(val) {
+  let v = val < 0 ? ~(val << 1) : val << 1;
+  let encoded = '';
+  while (v >= 0x20) {
+    encoded += String.fromCharCode((0x20 | (v & 0x1f)) + 63);
+    v >>= 5;
+  }
+  encoded += String.fromCharCode(v + 63);
+  return encoded;
+}
+
+async function verifyPracticeParticipant(userId, practiceWalkId) {
+  const result = await db.query(
+    'SELECT 1 FROM practice_walk_participants WHERE practice_walk_id = $1 AND participant_id = $2',
+    [practiceWalkId, userId]
+  );
+  return result.rows.length > 0;
+}
+
 async function notifyFollowers(app, userId, userName, { title, body, url }) {
   const webpush = app.locals.webpush;
   if (!webpush) return;
@@ -226,14 +274,22 @@ router.get('/bridges', async (req, res) => {
 });
 
 // --- Location Tracking ---
-router.post('/location', ...gated('EVENT_DAY_TRACKING', isAuthenticated), async (req, res) => {
+router.post('/location', isAuthenticated, async (req, res) => {
   try {
-    const { lat, lng } = req.body;
+    const { lat, lng, practice_walk_id } = req.body;
     if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
 
+    if (practice_walk_id) {
+      if (!(await verifyPracticeParticipant(req.user.id, practice_walk_id))) {
+        return res.status(403).json({ error: 'Not a participant of this practice walk' });
+      }
+    } else if (!features.EVENT_DAY_TRACKING && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Event day tracking is not enabled' });
+    }
+
     await db.query(
-      'INSERT INTO location_pings (participant_id, lat, lng) VALUES ($1, $2, $3)',
-      [req.user.id, lat, lng]
+      'INSERT INTO location_pings (participant_id, lat, lng, practice_walk_id) VALUES ($1, $2, $3, $4)',
+      [req.user.id, lat, lng, practice_walk_id || null]
     );
     res.json({ success: true });
   } catch (err) {
@@ -242,45 +298,129 @@ router.post('/location', ...gated('EVENT_DAY_TRACKING', isAuthenticated), async 
   }
 });
 
-router.post('/tracking/start', ...gated('EVENT_DAY_TRACKING', isAuthenticated), async (req, res) => {
+router.post('/tracking/start', isAuthenticated, async (req, res) => {
   try {
-    // End any active sessions first
-    await db.query(
-      `UPDATE tracking_sessions SET status = 'stopped', stopped_at = NOW()
-       WHERE participant_id = $1 AND status = 'active'`,
-      [req.user.id]
-    );
+    const { practice_walk_id } = req.body;
+
+    if (practice_walk_id) {
+      if (!(await verifyPracticeParticipant(req.user.id, practice_walk_id))) {
+        return res.status(403).json({ error: 'Not a participant of this practice walk' });
+      }
+    } else if (!features.EVENT_DAY_TRACKING && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Event day tracking is not enabled' });
+    }
+
+    // End any active sessions first (scoped to same context)
+    if (practice_walk_id) {
+      await db.query(
+        `UPDATE tracking_sessions SET status = 'stopped', stopped_at = NOW()
+         WHERE participant_id = $1 AND status = 'active' AND practice_walk_id = $2`,
+        [req.user.id, practice_walk_id]
+      );
+    } else {
+      await db.query(
+        `UPDATE tracking_sessions SET status = 'stopped', stopped_at = NOW()
+         WHERE participant_id = $1 AND status = 'active' AND practice_walk_id IS NULL`,
+        [req.user.id]
+      );
+    }
+
     const result = await db.query(
-      'INSERT INTO tracking_sessions (participant_id) VALUES ($1) RETURNING *',
-      [req.user.id]
+      'INSERT INTO tracking_sessions (participant_id, practice_walk_id) VALUES ($1, $2) RETURNING *',
+      [req.user.id, practice_walk_id || null]
     );
-    console.log(`[TRACKING] Started: ${req.user.full_name || req.user.email} (id:${req.user.id})`);
+    console.log(`[TRACKING] Started: ${req.user.full_name || req.user.email} (id:${req.user.id})${practice_walk_id ? ` practice:${practice_walk_id}` : ''}`);
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Failed to start tracking' });
   }
 });
 
-router.post('/tracking/stop', ...gated('EVENT_DAY_TRACKING', isAuthenticated), async (req, res) => {
+router.post('/tracking/stop', isAuthenticated, async (req, res) => {
   try {
-    await db.query(
-      `UPDATE tracking_sessions SET status = 'stopped', stopped_at = NOW()
-       WHERE participant_id = $1 AND status = 'active'`,
-      [req.user.id]
-    );
-    console.log(`[TRACKING] Stopped: ${req.user.full_name || req.user.email} (id:${req.user.id})`);
+    const { practice_walk_id } = req.body;
+
+    if (practice_walk_id) {
+      if (!(await verifyPracticeParticipant(req.user.id, practice_walk_id))) {
+        return res.status(403).json({ error: 'Not a participant of this practice walk' });
+      }
+    } else if (!features.EVENT_DAY_TRACKING && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Event day tracking is not enabled' });
+    }
+
+    let sessionQuery;
+    if (practice_walk_id) {
+      sessionQuery = await db.query(
+        `UPDATE tracking_sessions SET status = 'stopped', stopped_at = NOW()
+         WHERE participant_id = $1 AND status = 'active' AND practice_walk_id = $2
+         RETURNING *`,
+        [req.user.id, practice_walk_id]
+      );
+    } else {
+      sessionQuery = await db.query(
+        `UPDATE tracking_sessions SET status = 'stopped', stopped_at = NOW()
+         WHERE participant_id = $1 AND status = 'active' AND practice_walk_id IS NULL
+         RETURNING *`,
+        [req.user.id]
+      );
+    }
+
+    console.log(`[TRACKING] Stopped: ${req.user.full_name || req.user.email} (id:${req.user.id})${practice_walk_id ? ` practice:${practice_walk_id}` : ''}`);
+
+    // For practice walks, return route data for walk log prompt
+    if (practice_walk_id && sessionQuery.rows.length > 0) {
+      const session = sessionQuery.rows[0];
+      const pings = await db.query(
+        `SELECT lat, lng, recorded_at FROM location_pings
+         WHERE participant_id = $1 AND practice_walk_id = $2
+           AND recorded_at >= $3 AND recorded_at <= $4
+         ORDER BY recorded_at ASC`,
+        [req.user.id, practice_walk_id, session.started_at, session.stopped_at]
+      );
+
+      if (pings.rows.length >= 2) {
+        const points = pings.rows.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lng) }));
+        const distance_km = haversineDistance(points);
+        const duration_mins = Math.round((new Date(session.stopped_at) - new Date(session.started_at)) / 60000);
+        const polyline = encodePolyline(points);
+        return res.json({
+          success: true,
+          route: { distance_km: parseFloat(distance_km.toFixed(2)), duration_mins, polyline, points }
+        });
+      }
+    }
+
     res.json({ success: true });
   } catch (err) {
+    console.error('Stop tracking error:', err);
     res.status(500).json({ error: 'Failed to stop tracking' });
   }
 });
 
-router.get('/tracking/status', ...gated('EVENT_DAY_TRACKING', isAuthenticated), async (req, res) => {
+router.get('/tracking/status', isAuthenticated, async (req, res) => {
   try {
-    const result = await db.query(
-      `SELECT * FROM tracking_sessions WHERE participant_id = $1 AND status = 'active' LIMIT 1`,
-      [req.user.id]
-    );
+    const { practice_walk_id } = req.query;
+
+    if (practice_walk_id) {
+      if (!(await verifyPracticeParticipant(req.user.id, practice_walk_id))) {
+        return res.status(403).json({ error: 'Not a participant of this practice walk' });
+      }
+    } else if (!features.EVENT_DAY_TRACKING && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Event day tracking is not enabled' });
+    }
+
+    let result;
+    if (practice_walk_id) {
+      result = await db.query(
+        `SELECT * FROM tracking_sessions WHERE participant_id = $1 AND status = 'active' AND practice_walk_id = $2 LIMIT 1`,
+        [req.user.id, practice_walk_id]
+      );
+    } else {
+      result = await db.query(
+        `SELECT * FROM tracking_sessions WHERE participant_id = $1 AND status = 'active' AND practice_walk_id IS NULL LIMIT 1`,
+        [req.user.id]
+      );
+    }
     res.json({ active: result.rows.length > 0, session: result.rows[0] || null });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get tracking status' });
@@ -288,22 +428,89 @@ router.get('/tracking/status', ...gated('EVENT_DAY_TRACKING', isAuthenticated), 
 });
 
 // --- Live Locations ---
-router.get('/locations/live', ...gated('EVENT_DAY_TRACKING'), async (req, res) => {
+router.get('/locations/live', async (req, res) => {
   try {
+    const { practice_walk_id } = req.query;
+
+    if (practice_walk_id) {
+      // Practice walk: show only participants of this practice walk
+      const result = await db.query(`
+        SELECT DISTINCT ON (p.id)
+          p.id, p.full_name, p.avatar_url,
+          lp.lat, lp.lng, lp.recorded_at,
+          ts.status as tracking_status
+        FROM participants p
+        INNER JOIN practice_walk_participants pwp ON pwp.participant_id = p.id AND pwp.practice_walk_id = $1
+        INNER JOIN location_pings lp ON lp.participant_id = p.id AND lp.practice_walk_id = $1
+        LEFT JOIN tracking_sessions ts ON ts.participant_id = p.id AND ts.status = 'active' AND ts.practice_walk_id = $1
+        ORDER BY p.id, lp.recorded_at DESC
+      `, [practice_walk_id]);
+      return res.json(result.rows);
+    }
+
+    if (!features.EVENT_DAY_TRACKING && (!req.user || req.user.role !== 'admin')) {
+      return res.status(403).json({ error: 'Event day tracking is not enabled' });
+    }
+
     const result = await db.query(`
       SELECT DISTINCT ON (p.id)
         p.id, p.full_name, p.avatar_url,
         lp.lat, lp.lng, lp.recorded_at,
         ts.status as tracking_status
       FROM participants p
-      INNER JOIN location_pings lp ON lp.participant_id = p.id
-      LEFT JOIN tracking_sessions ts ON ts.participant_id = p.id AND ts.status = 'active'
+      INNER JOIN location_pings lp ON lp.participant_id = p.id AND lp.practice_walk_id IS NULL
+      LEFT JOIN tracking_sessions ts ON ts.participant_id = p.id AND ts.status = 'active' AND ts.practice_walk_id IS NULL
       ORDER BY p.id, lp.recorded_at DESC
     `);
     res.json(result.rows);
   } catch (err) {
     console.error('Live locations error:', err);
     res.status(500).json({ error: 'Failed to fetch locations' });
+  }
+});
+
+// --- Practice Walks (Participant) ---
+router.get('/practice-walks', isAuthenticated, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT pw.*,
+        (SELECT COUNT(*) FROM practice_walk_participants WHERE practice_walk_id = pw.id) AS participant_count
+      FROM practice_walks pw
+      JOIN practice_walk_participants pwp ON pwp.practice_walk_id = pw.id
+      WHERE pwp.participant_id = $1
+      ORDER BY pw.walk_date ASC, pw.walk_time ASC NULLS LAST
+    `, [req.user.id]);
+
+    const today = new Date().toISOString().split('T')[0];
+    const upcoming = result.rows.filter(w => w.walk_date >= today);
+    const past = result.rows.filter(w => w.walk_date < today);
+    res.json({ upcoming, past });
+  } catch (err) {
+    console.error('Practice walks list error:', err);
+    res.status(500).json({ error: 'Failed to fetch practice walks' });
+  }
+});
+
+router.get('/practice-walks/:id', isAuthenticated, async (req, res) => {
+  try {
+    if (!(await verifyPracticeParticipant(req.user.id, req.params.id))) {
+      return res.status(403).json({ error: 'Not a participant of this practice walk' });
+    }
+    const walk = await db.query('SELECT * FROM practice_walks WHERE id = $1', [req.params.id]);
+    if (walk.rows.length === 0) return res.status(404).json({ error: 'Practice walk not found' });
+
+    const participants = await db.query(`
+      SELECT p.id, p.full_name, p.avatar_url
+      FROM practice_walk_participants pwp
+      JOIN participants p ON p.id = pwp.participant_id
+      WHERE pwp.practice_walk_id = $1
+      ORDER BY p.full_name
+    `, [req.params.id]);
+
+    res.json({ ...walk.rows[0], participants: participants.rows });
+  } catch (err) {
+    console.error('Practice walk detail error:', err);
+    res.status(500).json({ error: 'Failed to fetch practice walk' });
   }
 });
 
@@ -406,7 +613,7 @@ router.post('/walks', isAuthenticated, uploadWalk.fields([
   { name: 'image', maxCount: 1 },
 ]), async (req, res) => {
   try {
-    const { date, distance_km, duration_mins, caption, description, mentions: mentionsRaw } = req.body;
+    const { date, distance_km, duration_mins, caption, description, mentions: mentionsRaw, polyline } = req.body;
     if (date && new Date(date) > new Date()) {
       return res.status(400).json({ error: 'Date cannot be in the future' });
     }
@@ -424,9 +631,9 @@ router.post('/walks', isAuthenticated, uploadWalk.fields([
     }
 
     const result = await db.query(
-      `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, description, gpx_path, image_path, mentions)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [req.user.id, date, distance_km, duration_mins, caption, description || null, gpxPath, imagePath, mentions ? JSON.stringify(mentions) : null]
+      `INSERT INTO walks (participant_id, date, distance_km, duration_mins, caption, description, gpx_path, image_path, mentions, polyline)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [req.user.id, date, distance_km, duration_mins, caption, description || null, gpxPath, imagePath, mentions ? JSON.stringify(mentions) : null, polyline || null]
     );
     const walk = result.rows[0];
     console.log(`[WALK] Logged: "${caption || 'Walk'}" ${distance_km}km by ${req.user.full_name} (id:${req.user.id})`);

@@ -60,6 +60,13 @@
       </div>
     </div>
 
+    <!-- Practice Walks -->
+    <div class="card hidden" id="practiceWalksCard">
+      <h2>Practice Walks</h2>
+      <div id="practiceUpcoming" class="mt-1"></div>
+      <div id="practicePast" class="mt-1"></div>
+    </div>
+
     <!-- Activity Heatmap -->
     <div class="card">
       <h2>Activity Calendar</h2>
@@ -175,6 +182,9 @@
           }
         } catch {}
       }
+
+      // Practice walks
+      loadPracticeWalks();
 
       // Recent walks
       loadRecentWalks();
@@ -367,6 +377,37 @@
       } catch {
         document.getElementById('recentWalks').innerHTML = '<p class="text-muted">Failed to load walks.</p>';
       }
+    }
+
+    async function loadPracticeWalks() {
+      try {
+        const { upcoming, past } = await App.fetchJSON('/api/practice-walks');
+        if (upcoming.length === 0 && past.length === 0) return;
+
+        document.getElementById('practiceWalksCard').classList.remove('hidden');
+
+        const renderList = (walks, muted) => walks.map(w => {
+          const date = new Date(w.walk_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+          const time = w.walk_time ? ' at ' + w.walk_time.substring(0, 5) : '';
+          return `
+            <a href="/practice-walk/${w.id}" class="card card-link" style="display:block;margin-bottom:0.75rem;padding:1rem;${muted ? 'opacity:0.6' : ''}">
+              <strong>${App.escapeHtml(w.title)}</strong>
+              <div class="text-muted text-sm mt-1">${date}${time} &middot; ${w.participant_count} walker${w.participant_count != 1 ? 's' : ''}</div>
+            </a>
+          `;
+        }).join('');
+
+        if (upcoming.length > 0) {
+          document.getElementById('practiceUpcoming').innerHTML =
+            '<h3 class="text-sm" style="text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.5rem">Upcoming</h3>' +
+            renderList(upcoming, false);
+        }
+        if (past.length > 0) {
+          document.getElementById('practicePast').innerHTML =
+            '<h3 class="text-sm" style="text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.5rem">Past</h3>' +
+            renderList(past, true);
+        }
+      } catch {}
     }
 
     function renderHeatmap(calendar) {

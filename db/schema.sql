@@ -114,6 +114,21 @@ CREATE TABLE IF NOT EXISTS deletion_requests (
   resolved_by INTEGER REFERENCES participants(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS practice_walks (
+  id            SERIAL PRIMARY KEY,
+  title         VARCHAR(255) NOT NULL,
+  walk_date     DATE NOT NULL,
+  walk_time     TIME,
+  created_by    INT REFERENCES participants(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS practice_walk_participants (
+  practice_walk_id INT REFERENCES practice_walks(id) ON DELETE CASCADE,
+  participant_id   INT REFERENCES participants(id) ON DELETE CASCADE,
+  PRIMARY KEY (practice_walk_id, participant_id)
+);
+
 -- Session store table for connect-pg-simple
 CREATE TABLE IF NOT EXISTS "session" (
   "sid" VARCHAR NOT NULL COLLATE "default" PRIMARY KEY,

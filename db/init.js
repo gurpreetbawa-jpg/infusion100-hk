@@ -32,6 +32,8 @@ async function run() {
       DROP TABLE IF EXISTS bridges CASCADE;
       DROP TABLE IF EXISTS push_subscriptions CASCADE;
       DROP TABLE IF EXISTS "session" CASCADE;
+      DROP TABLE IF EXISTS practice_walk_participants CASCADE;
+      DROP TABLE IF EXISTS practice_walks CASCADE;
       DROP TABLE IF EXISTS participants CASCADE;
     `);
   }
@@ -88,6 +90,24 @@ async function run() {
       resolved_at TIMESTAMPTZ,
       resolved_by INTEGER REFERENCES participants(id) ON DELETE SET NULL
     )`,
+    // Practice walks
+    `CREATE TABLE IF NOT EXISTS practice_walks (
+      id SERIAL PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      walk_date DATE NOT NULL,
+      walk_time TIME,
+      created_by INT REFERENCES participants(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS practice_walk_participants (
+      practice_walk_id INT REFERENCES practice_walks(id) ON DELETE CASCADE,
+      participant_id INT REFERENCES participants(id) ON DELETE CASCADE,
+      PRIMARY KEY (practice_walk_id, participant_id)
+    )`,
+    `ALTER TABLE tracking_sessions ADD COLUMN IF NOT EXISTS practice_walk_id INT REFERENCES practice_walks(id) ON DELETE SET NULL`,
+    `ALTER TABLE location_pings ADD COLUMN IF NOT EXISTS practice_walk_id INT REFERENCES practice_walks(id) ON DELETE SET NULL`,
+    `CREATE INDEX IF NOT EXISTS idx_tracking_practice ON tracking_sessions(practice_walk_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_pings_practice ON location_pings(practice_walk_id)`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {
