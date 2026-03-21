@@ -482,8 +482,9 @@ router.get('/practice-walks', isAuthenticated, async (req, res) => {
     `, [req.user.id]);
 
     const today = new Date().toISOString().split('T')[0];
-    const upcoming = result.rows.filter(w => w.walk_date >= today);
-    const past = result.rows.filter(w => w.walk_date < today);
+    const toDateStr = (w) => (w.walk_date instanceof Date ? w.walk_date.toISOString() : String(w.walk_date)).split('T')[0];
+    const upcoming = result.rows.filter(w => toDateStr(w) >= today);
+    const past = result.rows.filter(w => toDateStr(w) < today);
     res.json({ upcoming, past });
   } catch (err) {
     console.error('Practice walks list error:', err);
