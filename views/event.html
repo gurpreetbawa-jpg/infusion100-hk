@@ -24,13 +24,6 @@
     <button class="filter-btn" data-filter="following" onclick="setFilter('following')">Following</button>
   </div>
 
-  <div id="trackingBanner" class="tracking-banner hidden">
-    <span class="pulse" id="bannerPulse"></span>
-    <span id="bannerText">GPS tracking active</span>
-    <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white" id="bannerPauseBtn" onclick="pauseTracking()">Pause</button>
-    <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white" onclick="stopTracking()">Stop</button>
-  </div>
-
   <div class="container">
     <div id="alertBox"></div>
 
@@ -40,49 +33,26 @@
     </div>
 
     <div class="card">
-      <h2>GPS Tracking</h2>
+      <h2>Check In</h2>
       <p class="text-muted mt-1 mb-2">
-        Track your location on event day so friends and family can follow your progress on the live map.
-        Keep this page open while walking.
+        Tap the button to share your current location so friends and family can see you on the live map.
       </p>
-
-      <div id="trackingControls">
-        <button class="btn btn-primary btn-lg btn-block" id="startBtn" onclick="startTracking()">
-          I'm Walking &mdash; Start Tracking
-        </button>
-        <div id="pausedControls" class="hidden">
-          <div class="flex gap-1">
-            <button class="btn btn-primary btn-lg" style="flex:1" onclick="resumeTracking()">Resume Tracking</button>
-            <button class="btn btn-outline btn-lg" onclick="stopTracking()">Stop</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="trackingInfo" class="hidden mt-2">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="pingCount">0</div>
-            <div class="stat-label">Location Pings Sent</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="lastPing">--</div>
-            <div class="stat-label">Last Update</div>
-          </div>
-        </div>
-      </div>
+      <button class="btn btn-primary btn-lg btn-block" id="checkInBtn" onclick="checkIn()">
+        Check In
+      </button>
+      <p class="text-muted mt-1 hidden" id="lastCheckIn" style="text-align:center;font-size:0.875rem"></p>
     </div>
 
     <div class="card">
-      <h2>Your Route</h2>
+      <h2>Live Map</h2>
       <div id="eventMap" class="map-container mt-1"></div>
     </div>
 
     <div class="card">
       <h2>Tips for Event Day</h2>
       <ul style="padding-left:1.25rem; line-height:2">
-        <li>Keep this browser tab open while walking for GPS tracking to work.</li>
+        <li>Check in regularly so friends and family can follow your progress.</li>
         <li>Ensure your phone's location services are enabled.</li>
-        <li>Carry a portable charger — GPS tracking uses battery.</li>
         <li>Stay hydrated and take breaks as needed.</li>
         <li>Share the <a href="/leaderboard">Live Map</a> link with friends and family!</li>
       </ul>
@@ -91,12 +61,10 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/app.js"></script>
-  <script src="/js/gps-tracker.js"></script>
   <script>
     let map;
     let followingIds = new Set();
     let filterMode = 'everyone';
-    let tracker;
 
     async function init() {
       const user = await App.loadUser();
@@ -114,71 +82,28 @@
         attribution: '&copy; OpenStreetMap'
       }).addTo(map);
 
-      const bridges = await App.fetchJSON('/api/bridges');
-      bridges.forEach(b => {
+      var bridges = await App.fetchJSON('/api/bridges');
+      bridges.forEach(function(b) {
         L.circleMarker([b.lat, b.lng], {
           radius: 6, fillColor: '#FC4C02', color: '#fff', weight: 2, fillOpacity: 0.9
-        }).addTo(map).bindPopup(`<strong>${b.name}</strong>`);
+        }).addTo(map).bindPopup('<strong>' + App.escapeHtml(b.name) + '</strong>');
       });
 
       if (bridges.length) {
-        const coords = bridges.map(b => [b.lat, b.lng]);
+        var coords = bridges.map(function(b) { return [b.lat, b.lng]; });
         L.polyline(coords, { color: '#1A1F36', weight: 2, opacity: 0.3, dashArray: '6,6' }).addTo(map);
         map.fitBounds(coords, { padding: [30, 30] });
       }
 
-      // Init GPS tracker
-      tracker = new GpsTracker({
-        onPosition: function(lat, lng) { updateSelfMarker(lat, lng); },
-        onPingCount: function(count) {
-          document.getElementById('pingCount').textContent = count;
-          document.getElementById('lastPing').textContent = new Date().toLocaleTimeString();
-        },
-        onStatusChange: function(status) {
-          if (status === 'tracking') showTrackingUI();
-          else if (status === 'paused') showPausedUI();
-          else hideTrackingUI();
-        },
-        onAlert: function(msg, type) {
-          App.showAlert(document.getElementById('alertBox'), msg, type);
-        },
-      });
-      await tracker.checkAndResume();
-
-      // Show other participants on the map
       refreshParticipants();
       setInterval(refreshParticipants, 30000);
     }
 
-    const participantMarkers = {};
-
-    function updateSelfMarker(lat, lng) {
-      const user = App.user;
-      if (!user) return;
-      const color = '#FC4C02';
-      if (participantMarkers[user.id]) {
-        participantMarkers[user.id].setLatLng([lat, lng]);
-      } else {
-        const marker = L.circleMarker([lat, lng], {
-          radius: 12, fillColor: color, color: color, weight: 2, fillOpacity: 0.9
-        }).addTo(map);
-        marker.bindPopup(`
-          <div style="text-align:center">
-            <strong>${App.escapeHtml(user.full_name || 'Unknown')}</strong> (You)<br>
-            <span style="color:${color}">Walking</span>
-          </div>
-        `);
-        marker.bindTooltip('You', {
-          permanent: true, direction: 'top', offset: [0, -10],
-          className: 'participant-label participant-label-me'
-        });
-        participantMarkers[user.id] = marker;
-      }
-    }
+    var participantMarkers = {};
 
     function setFilter(mode) {
       filterMode = mode;
-      document.querySelectorAll('.filter-btn').forEach(b => {
+      document.querySelectorAll('.filter-btn').forEach(function(b) {
         b.classList.toggle('active', b.dataset.filter === mode);
       });
       refreshParticipants();
@@ -186,42 +111,43 @@
 
     async function refreshParticipants() {
       try {
-        const participants = await App.fetchJSON('/api/locations/live');
-        const user = App.user;
+        var participants = await App.fetchJSON('/api/locations/live');
+        var user = App.user;
 
-        const visible = filterMode === 'following'
-          ? participants.filter(p => (user && p.id === user.id) || followingIds.has(p.id))
+        var visible = filterMode === 'following'
+          ? participants.filter(function(p) { return (user && p.id === user.id) || followingIds.has(p.id); })
           : participants;
-        const visibleIds = new Set(visible.map(p => p.id));
+        var visibleIds = new Set(visible.map(function(p) { return p.id; }));
 
-        Object.keys(participantMarkers).forEach(id => {
+        Object.keys(participantMarkers).forEach(function(id) {
           if (!visibleIds.has(parseInt(id))) {
             map.removeLayer(participantMarkers[id]);
             delete participantMarkers[id];
           }
         });
 
-        visible.forEach(p => {
-          const isMe = user && p.id === user.id;
-          const isActive = p.tracking_status === 'active';
-          const color = isMe ? '#FC4C02' : (isActive ? '#10B981' : '#6B7280');
-          const firstName = (p.full_name || 'Unknown').split(' ')[0];
+        // All dynamic values escaped via App.escapeHtml — no raw user input in markup
+        visible.forEach(function(p) {
+          var isMe = user && p.id === user.id;
+          var color = isMe ? '#FC4C02' : '#10B981';
+          var firstName = (p.full_name || 'Unknown').split(' ')[0];
+
+          var popupContent =
+            '<div style="text-align:center">' +
+              '<strong>' + App.escapeHtml(p.full_name || 'Unknown') + '</strong>' + (isMe ? ' (You)' : '') + '<br>' +
+              '<small>Checked in ' + App.escapeHtml(App.formatRelative(p.recorded_at)) + '</small>' +
+            '</div>';
 
           if (participantMarkers[p.id]) {
             participantMarkers[p.id].setLatLng([p.lat, p.lng]);
             participantMarkers[p.id].setStyle({ fillColor: color, color: color });
+            participantMarkers[p.id].setPopupContent(popupContent);
           } else {
-            const marker = L.circleMarker([p.lat, p.lng], {
+            var marker = L.circleMarker([p.lat, p.lng], {
               radius: isMe ? 12 : 9, fillColor: color, color: color, weight: 2, fillOpacity: 0.9
             }).addTo(map);
 
-            marker.bindPopup(`
-              <div style="text-align:center">
-                <strong>${App.escapeHtml(p.full_name || 'Unknown')}</strong>${isMe ? ' (You)' : ''}<br>
-                <span style="color:${color}">${isActive ? 'Walking' : 'Finished'}</span><br>
-                <small>Last update: ${App.formatRelative(p.recorded_at)}</small>
-              </div>
-            `);
+            marker.bindPopup(popupContent);
 
             marker.bindTooltip(isMe ? 'You' : firstName, {
               permanent: true, direction: 'top', offset: [0, -10],
@@ -231,40 +157,59 @@
             participantMarkers[p.id] = marker;
           }
         });
-      } catch {}
+      } catch (e) {}
     }
 
-    async function startTracking() { await tracker.start(); }
-    async function pauseTracking() { await tracker.pause(); }
-    async function resumeTracking() { await tracker.resume(); }
-    async function stopTracking() { await tracker.stop(); }
+    async function checkIn() {
+      var btn = document.getElementById('checkInBtn');
+      btn.disabled = true;
+      // Static spinner markup only — no user data, safe from XSS
+      btn.innerHTML = '<span class="spinner"></span> Getting location...';
 
-    function showTrackingUI() {
-      document.getElementById('trackingBanner').classList.remove('hidden');
-      document.getElementById('bannerPulse').classList.add('pulse');
-      document.getElementById('bannerText').textContent = 'GPS tracking active';
-      document.getElementById('bannerPauseBtn').textContent = 'Pause';
-      document.getElementById('bannerPauseBtn').onclick = pauseTracking;
-      document.getElementById('trackingInfo').classList.remove('hidden');
-      document.getElementById('startBtn').classList.add('hidden');
-      document.getElementById('pausedControls').classList.add('hidden');
-    }
+      try {
+        var pos = await new Promise(function(resolve, reject) {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0,
+          });
+        });
 
-    function showPausedUI() {
-      document.getElementById('trackingBanner').classList.remove('hidden');
-      document.getElementById('bannerPulse').classList.remove('pulse');
-      document.getElementById('bannerText').textContent = 'GPS tracking paused';
-      document.getElementById('bannerPauseBtn').textContent = 'Resume';
-      document.getElementById('bannerPauseBtn').onclick = resumeTracking;
-      document.getElementById('startBtn').classList.add('hidden');
-      document.getElementById('pausedControls').classList.remove('hidden');
-    }
+        btn.innerHTML = '<span class="spinner"></span> Checking in...';
 
-    function hideTrackingUI() {
-      document.getElementById('trackingBanner').classList.add('hidden');
-      document.getElementById('pausedControls').classList.add('hidden');
-      document.getElementById('startBtn').classList.remove('hidden');
-      document.getElementById('startBtn').textContent = 'Resume Tracking';
+        await App.fetchJSON('/api/location', {
+          method: 'POST',
+          body: JSON.stringify({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          }),
+        });
+
+        btn.textContent = 'Checked In!';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-success');
+
+        var lastEl = document.getElementById('lastCheckIn');
+        lastEl.textContent = 'Last check-in: just now';
+        lastEl.classList.remove('hidden');
+
+        await refreshParticipants();
+
+        setTimeout(function() {
+          btn.textContent = 'Check In';
+          btn.classList.remove('btn-success');
+          btn.classList.add('btn-primary');
+          btn.disabled = false;
+        }, 3000);
+      } catch (err) {
+        var msg = 'Check-in failed: ' + err.message;
+        if (err.code === 1) msg = 'Location permission denied. Please enable location access to check in.';
+        else if (err.code === 2) msg = 'Unable to determine your location. Please try again.';
+        else if (err.code === 3) msg = 'Location request timed out. Please try again.';
+        App.showAlert(document.getElementById('alertBox'), msg, 'danger');
+        btn.textContent = 'Check In';
+        btn.disabled = false;
+      }
     }
 
     init();

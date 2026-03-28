@@ -19,13 +19,6 @@
     <ul class="navbar-links" id="navLinks"></ul>
   </nav>
 
-  <div id="trackingBanner" class="tracking-banner hidden">
-    <span class="pulse" id="bannerPulse"></span>
-    <span id="bannerText">GPS tracking active</span>
-    <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white" id="bannerPauseBtn" onclick="pauseTracking()">Pause</button>
-    <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white" onclick="stopTracking()">Stop</button>
-  </div>
-
   <div class="container">
     <div id="alertBox"></div>
 
@@ -45,103 +38,50 @@
       </div>
     </div>
 
-    <!-- GPS Tracking -->
+    <!-- Check In -->
     <div class="card">
-      <h2>GPS Tracking</h2>
-      <p class="text-muted mt-1 mb-2">Track your location so other walkers can see you on the map. Keep this page open while walking.</p>
-      <div id="trackingControls">
-        <button class="btn btn-primary btn-lg btn-block" id="startBtn" onclick="startTracking()">
-          Start Tracking
-        </button>
-        <div id="pausedControls" class="hidden">
-          <div class="flex gap-1">
-            <button class="btn btn-primary btn-lg" style="flex:1" onclick="resumeTracking()">Resume Tracking</button>
-            <button class="btn btn-outline btn-lg" onclick="stopTracking()">Stop</button>
-          </div>
-        </div>
-      </div>
-      <div id="trackingInfo" class="hidden mt-2">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="pingCount">0</div>
-            <div class="stat-label">Location Pings Sent</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="lastPing">--</div>
-            <div class="stat-label">Last Update</div>
-          </div>
-        </div>
-      </div>
+      <h2>Check In</h2>
+      <p class="text-muted mt-1 mb-2">Tap the button to share your current location with other walkers on the map.</p>
+      <button class="btn btn-primary btn-lg btn-block" id="checkInBtn" onclick="checkIn()">
+        Check In
+      </button>
+      <p class="text-muted mt-1 hidden" id="lastCheckIn" style="text-align:center;font-size:0.875rem"></p>
     </div>
 
     <!-- Map -->
     <div class="card">
-      <h2>Live Map</h2>
+      <h2>Map</h2>
       <div id="practiceMap" class="map-container mt-1"></div>
-    </div>
-  </div>
-
-  <!-- Walk Log Prompt Modal -->
-  <div class="modal-backdrop" id="walkLogModal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Save as Walk?</h2>
-        <button class="modal-close" onclick="dismissWalkLog()">&times;</button>
-      </div>
-      <div id="routeSummary" class="mb-2">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="routeDistance">--</div>
-            <div class="stat-label">Distance</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="routeDuration">--</div>
-            <div class="stat-label">Duration</div>
-          </div>
-        </div>
-        <div id="routeMapContainer" class="map-container mt-1" style="height:200px"></div>
-      </div>
-      <form id="walkLogForm">
-        <div class="form-group">
-          <label>Caption (optional)</label>
-          <input type="text" id="walkCaption" class="form-control" placeholder="How was the walk?">
-        </div>
-        <div class="flex gap-1">
-          <button type="submit" class="btn btn-primary">Save Walk</button>
-          <button type="button" class="btn btn-outline" onclick="dismissWalkLog()">Dismiss</button>
-        </div>
-      </form>
     </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/app.js"></script>
-  <script src="/js/gps-tracker.js"></script>
   <script>
     const practiceWalkId = parseInt(window.location.pathname.split('/').pop());
-    let map, routeMap;
-    let pendingRoute = null;
-    let tracker;
+    let map;
 
     async function init() {
       const user = await App.loadUser();
       if (!user) return window.location.href = '/login';
 
       try {
-        const walk = await App.fetchJSON(`/api/practice-walks/${practiceWalkId}`);
+        const walk = await App.fetchJSON('/api/practice-walks/' + practiceWalkId);
         document.getElementById('walkTitle').textContent = walk.title;
         const date = new Date(walk.walk_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         const time = walk.walk_time ? ' at ' + walk.walk_time.substring(0, 5) : '';
         document.getElementById('walkDate').textContent = date + time;
 
-        // Roster
-        document.getElementById('rosterList').innerHTML = walk.participants.map(p => `
-          <div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border)">
-            ${p.avatar_url ? `<img src="${p.avatar_url}" alt="" style="width:32px;height:32px;border-radius:50%">` : '<div style="width:32px;height:32px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600">' + (p.full_name || '?')[0] + '</div>'}
-            <span>${App.escapeHtml(p.full_name || 'Unknown')}</span>
-            ${p.id === user.id ? '<span class="badge badge-info" style="margin-left:auto">You</span>' : ''}
-          </div>
-        `).join('');
+        // Roster — all values are escaped with App.escapeHtml; no raw user input in markup
+        document.getElementById('rosterList').innerHTML = walk.participants.map(p =>
+          '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border)">' +
+            (p.avatar_url
+              ? '<img src="' + App.escapeHtml(p.avatar_url) + '" alt="" style="width:32px;height:32px;border-radius:50%">'
+              : '<div style="width:32px;height:32px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600">' + App.escapeHtml((p.full_name || '?')[0]) + '</div>') +
+            '<span>' + App.escapeHtml(p.full_name || 'Unknown') + '</span>' +
+            (p.id === user.id ? '<span class="badge badge-info" style="margin-left:auto">You</span>' : '') +
+          '</div>'
+        ).join('');
       } catch (err) {
         App.showAlert(document.getElementById('alertBox'), 'Failed to load practice walk: ' + err.message, 'danger');
         return;
@@ -153,58 +93,15 @@
         attribution: '&copy; OpenStreetMap'
       }).addTo(map);
 
-      // Init GPS tracker
-      tracker = new GpsTracker({
-        practiceWalkId: practiceWalkId,
-        onPosition: function(lat, lng) { updateSelfMarker(lat, lng); },
-        onPingCount: function(count) {
-          document.getElementById('pingCount').textContent = count;
-          document.getElementById('lastPing').textContent = new Date().toLocaleTimeString();
-        },
-        onStatusChange: function(status) {
-          if (status === 'tracking') showTrackingUI();
-          else if (status === 'paused') showPausedUI();
-          else hideTrackingUI();
-        },
-        onAlert: function(msg, type) {
-          App.showAlert(document.getElementById('alertBox'), msg, type);
-        },
-      });
-      await tracker.checkAndResume();
-
       refreshParticipants();
       setInterval(refreshParticipants, 30000);
     }
 
     const participantMarkers = {};
 
-    function updateSelfMarker(lat, lng) {
-      const user = App.user;
-      if (!user) return;
-      const color = '#FC4C02';
-      if (participantMarkers[user.id]) {
-        participantMarkers[user.id].setLatLng([lat, lng]);
-      } else {
-        const marker = L.circleMarker([lat, lng], {
-          radius: 12, fillColor: color, color: color, weight: 2, fillOpacity: 0.9
-        }).addTo(map);
-        marker.bindPopup(`
-          <div style="text-align:center">
-            <strong>${App.escapeHtml(user.full_name || 'Unknown')}</strong> (You)<br>
-            <span style="color:${color}">Walking</span>
-          </div>
-        `);
-        marker.bindTooltip('You', {
-          permanent: true, direction: 'top', offset: [0, -10],
-          className: 'participant-label participant-label-me'
-        });
-        participantMarkers[user.id] = marker;
-      }
-    }
-
     async function refreshParticipants() {
       try {
-        const participants = await App.fetchJSON(`/api/locations/live?practice_walk_id=${practiceWalkId}`);
+        const participants = await App.fetchJSON('/api/locations/live?practice_walk_id=' + practiceWalkId);
         const user = App.user;
         const visibleIds = new Set(participants.map(p => p.id));
 
@@ -215,27 +112,28 @@
           }
         });
 
+        // All dynamic values passed through App.escapeHtml before insertion
         participants.forEach(p => {
           const isMe = user && p.id === user.id;
-          const isActive = p.tracking_status === 'active';
-          const color = isMe ? '#FC4C02' : (isActive ? '#10B981' : '#6B7280');
+          const color = isMe ? '#FC4C02' : '#10B981';
           const firstName = (p.full_name || 'Unknown').split(' ')[0];
+
+          const popupHtml =
+            '<div style="text-align:center">' +
+              '<strong>' + App.escapeHtml(p.full_name || 'Unknown') + '</strong>' + (isMe ? ' (You)' : '') + '<br>' +
+              '<small>Checked in ' + App.escapeHtml(App.formatRelative(p.recorded_at)) + '</small>' +
+            '</div>';
 
           if (participantMarkers[p.id]) {
             participantMarkers[p.id].setLatLng([p.lat, p.lng]);
             participantMarkers[p.id].setStyle({ fillColor: color, color: color });
+            participantMarkers[p.id].setPopupContent(popupHtml);
           } else {
             const marker = L.circleMarker([p.lat, p.lng], {
               radius: isMe ? 12 : 9, fillColor: color, color: color, weight: 2, fillOpacity: 0.9
             }).addTo(map);
 
-            marker.bindPopup(`
-              <div style="text-align:center">
-                <strong>${App.escapeHtml(p.full_name || 'Unknown')}</strong>${isMe ? ' (You)' : ''}<br>
-                <span style="color:${color}">${isActive ? 'Walking' : 'Finished'}</span><br>
-                <small>Last update: ${App.formatRelative(p.recorded_at)}</small>
-              </div>
-            `);
+            marker.bindPopup(popupHtml);
 
             marker.bindTooltip(isMe ? 'You' : firstName, {
               permanent: true, direction: 'top', offset: [0, -10],
@@ -253,105 +151,58 @@
       } catch {}
     }
 
-    async function startTracking() { await tracker.start(); }
-    async function pauseTracking() { await tracker.pause(); }
-    async function resumeTracking() { await tracker.resume(); }
+    async function checkIn() {
+      const btn = document.getElementById('checkInBtn');
+      btn.disabled = true;
+      // Static markup only — safe from XSS
+      btn.innerHTML = '<span class="spinner"></span> Getting location...';
 
-    async function stopTracking() {
       try {
-        const result = await tracker.stop();
-        if (result && result.route && result.route.distance_km > 0) {
-          pendingRoute = result.route;
-          showWalkLogPrompt(result.route);
-        }
-      } catch (err) {
-        App.showAlert(document.getElementById('alertBox'), 'Failed to stop tracking: ' + err.message, 'danger');
-      }
-    }
-
-    function showTrackingUI() {
-      document.getElementById('trackingBanner').classList.remove('hidden');
-      document.getElementById('bannerPulse').classList.add('pulse');
-      document.getElementById('bannerText').textContent = 'GPS tracking active';
-      document.getElementById('bannerPauseBtn').textContent = 'Pause';
-      document.getElementById('bannerPauseBtn').onclick = pauseTracking;
-      document.getElementById('trackingInfo').classList.remove('hidden');
-      document.getElementById('startBtn').classList.add('hidden');
-      document.getElementById('pausedControls').classList.add('hidden');
-    }
-
-    function showPausedUI() {
-      document.getElementById('trackingBanner').classList.remove('hidden');
-      document.getElementById('bannerPulse').classList.remove('pulse');
-      document.getElementById('bannerText').textContent = 'GPS tracking paused';
-      document.getElementById('bannerPauseBtn').textContent = 'Resume';
-      document.getElementById('bannerPauseBtn').onclick = resumeTracking;
-      document.getElementById('startBtn').classList.add('hidden');
-      document.getElementById('pausedControls').classList.remove('hidden');
-    }
-
-    function hideTrackingUI() {
-      document.getElementById('trackingBanner').classList.add('hidden');
-      document.getElementById('pausedControls').classList.add('hidden');
-      document.getElementById('startBtn').classList.remove('hidden');
-      document.getElementById('startBtn').textContent = 'Resume Tracking';
-    }
-
-    function showWalkLogPrompt(route) {
-      document.getElementById('routeDistance').textContent = App.formatDistance(route.distance_km);
-      document.getElementById('routeDuration').textContent = App.formatDuration(route.duration_mins);
-      document.getElementById('walkLogModal').classList.add('active');
-
-      // Render mini route map
-      setTimeout(() => {
-        if (routeMap) routeMap.remove();
-        routeMap = L.map('routeMapContainer').setView([51.48, -0.12], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap'
-        }).addTo(routeMap);
-
-        if (route.points && route.points.length > 1) {
-          const coords = route.points.map(p => [p.lat, p.lng]);
-          L.polyline(coords, { color: '#FC4C02', weight: 3 }).addTo(routeMap);
-          routeMap.fitBounds(coords, { padding: [20, 20] });
-        }
-      }, 100);
-    }
-
-    function dismissWalkLog() {
-      document.getElementById('walkLogModal').classList.remove('active');
-      pendingRoute = null;
-      if (routeMap) { routeMap.remove(); routeMap = null; }
-    }
-
-    document.getElementById('walkLogForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (!pendingRoute) return;
-
-      const caption = document.getElementById('walkCaption').value.trim() || 'Practice Walk';
-      try {
-        const formData = new FormData();
-        formData.append('date', new Date().toISOString());
-        formData.append('distance_km', pendingRoute.distance_km);
-        formData.append('duration_mins', pendingRoute.duration_mins);
-        formData.append('caption', caption);
-        formData.append('polyline', pendingRoute.polyline);
-
-        const resp = await fetch('/api/walks', {
-          method: 'POST',
-          body: formData,
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0,
+          });
         });
-        if (!resp.ok) {
-          const err = await resp.json();
-          throw new Error(err.error || 'Failed to save walk');
-        }
 
-        dismissWalkLog();
-        App.showAlert(document.getElementById('alertBox'), 'Walk saved to your activity log!', 'success');
+        btn.innerHTML = '<span class="spinner"></span> Checking in...';
+
+        await App.fetchJSON('/api/location', {
+          method: 'POST',
+          body: JSON.stringify({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            practice_walk_id: practiceWalkId,
+          }),
+        });
+
+        btn.textContent = 'Checked In!';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-success');
+
+        const lastEl = document.getElementById('lastCheckIn');
+        lastEl.textContent = 'Last check-in: just now';
+        lastEl.classList.remove('hidden');
+
+        await refreshParticipants();
+
+        setTimeout(() => {
+          btn.textContent = 'Check In';
+          btn.classList.remove('btn-success');
+          btn.classList.add('btn-primary');
+          btn.disabled = false;
+        }, 3000);
       } catch (err) {
-        App.showAlert(document.getElementById('alertBox'), 'Failed to save walk: ' + err.message, 'danger');
+        let msg = 'Check-in failed: ' + err.message;
+        if (err.code === 1) msg = 'Location permission denied. Please enable location access to check in.';
+        else if (err.code === 2) msg = 'Unable to determine your location. Please try again.';
+        else if (err.code === 3) msg = 'Location request timed out. Please try again.';
+        App.showAlert(document.getElementById('alertBox'), msg, 'danger');
+        btn.textContent = 'Check In';
+        btn.disabled = false;
       }
-    });
+    }
 
     init();
   </script>
