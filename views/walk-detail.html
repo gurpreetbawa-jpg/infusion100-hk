@@ -294,6 +294,18 @@
 
     async function saveEdit(e) {
       e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      const originalText = btn.textContent;
+
+      const imageFile = document.getElementById('editImage').files[0];
+      const hasImage = !!imageFile;
+
+      // All innerHTML assignments below use static markup only (no user data)
+      btn.innerHTML = hasImage
+        ? '<span class="spinner"></span> Uploading... 0%'
+        : '<span class="spinner"></span> Saving...';
+
       try {
         const dateVal = document.getElementById('editDate').value;
         const timeVal = document.getElementById('editTime').value;
@@ -307,18 +319,21 @@
         form.append('duration_mins', (edh || edm) ? edh * 60 + edm : '');
         form.append('caption', document.getElementById('editCaption').value);
         form.append('description', document.getElementById('editDescription').value);
-        const imageFile = document.getElementById('editImage').files[0];
         if (imageFile) form.append('image', imageFile);
 
-        const res = await fetch(`/api/walks/${walkId}`, { method: 'PUT', body: form });
-        if (res.status === 401) { window.location.href = '/login'; return; }
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Request failed');
-        }
+        await App.uploadFormData('/api/walks/' + walkId, 'PUT', form, {
+          onProgress: (pct) => {
+            if (!hasImage) return;
+            btn.innerHTML = pct < 100
+              ? '<span class="spinner"></span> Uploading... ' + pct + '%'
+              : '<span class="spinner"></span> Processing...';
+          },
+        });
         loadWalk();
       } catch (err) {
         alert('Failed to update: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = originalText;
       }
     }
 

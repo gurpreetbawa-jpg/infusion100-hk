@@ -270,7 +270,16 @@
       e.preventDefault();
       const btn = document.getElementById('submitBtn');
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Saving...';
+
+      const imageFile = document.getElementById('image').files[0];
+      const hasImage = !!imageFile;
+
+      // Note: innerHTML here uses only static markup (no user data), safe from XSS
+      if (hasImage) {
+        btn.innerHTML = '<div class="upload-progress"><span class="upload-progress-text">Uploading... 0%</span><div class="upload-progress-bar"><div class="upload-progress-bar-fill" id="uploadFill"></div></div></div>';
+      } else {
+        btn.innerHTML = '<span class="spinner"></span> Saving...';
+      }
 
       try {
         let distKm = parseFloat(document.getElementById('distance').value);
@@ -292,7 +301,6 @@
           formData.append('mentions', JSON.stringify(mentions));
         }
 
-        const imageFile = document.getElementById('image').files[0];
         if (imageFile) {
           formData.append('image', imageFile);
         }
@@ -305,13 +313,20 @@
           formData.append('gpx', gpxFile);
         }
 
-        const res = await fetch('/api/walks', { method: 'POST', body: formData });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Failed to save walk');
-        }
-        const walk = await res.json();
-        window.location.href = `/walk/${walk.id}`;
+        const walk = await App.uploadFormData('/api/walks', 'POST', formData, {
+          onProgress: (pct) => {
+            if (!hasImage) return;
+            const fill = document.getElementById('uploadFill');
+            const text = btn.querySelector('.upload-progress-text');
+            if (fill) fill.style.width = pct + '%';
+            if (text) text.textContent = pct < 100 ? 'Uploading... ' + pct + '%' : 'Processing...';
+            if (pct >= 100) {
+              // Note: static markup only, no user data
+              btn.innerHTML = '<span class="spinner"></span> Processing image...';
+            }
+          },
+        });
+        window.location.href = '/walk/' + walk.id;
       } catch (err) {
         App.showAlert(document.getElementById('alertBox'), err.message, 'danger');
         btn.disabled = false;

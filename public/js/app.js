@@ -139,6 +139,34 @@ const App = {
   },
 };
 
+// Upload FormData with progress tracking (uses XHR for upload.onprogress)
+App.uploadFormData = function (url, method, formData, { onProgress } = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    });
+    xhr.addEventListener('load', () => {
+      if (xhr.status === 401) {
+        window.location.href = '/login';
+        return reject(new Error('Unauthorized'));
+      }
+      let data;
+      try { data = JSON.parse(xhr.responseText); } catch { data = {}; }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data);
+      } else {
+        reject(new Error(data.error || 'Request failed'));
+      }
+    });
+    xhr.addEventListener('error', () => reject(new Error('Network error')));
+    xhr.send(formData);
+  });
+};
+
 // Push notification subscription
 App.initPush = async function () {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
