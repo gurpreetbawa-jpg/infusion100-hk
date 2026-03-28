@@ -287,11 +287,30 @@ router.post('/location', isAuthenticated, async (req, res) => {
       return res.status(403).json({ error: 'Event day tracking is not enabled' });
     }
 
-    await db.query(
-      'INSERT INTO location_pings (participant_id, lat, lng, practice_walk_id) VALUES ($1, $2, $3, $4)',
+    const pingResult = await db.query(
+      'INSERT INTO location_pings (participant_id, lat, lng, practice_walk_id) VALUES ($1, $2, $3, $4) RETURNING id',
       [req.user.id, lat, lng, practice_walk_id || null]
     );
     res.json({ success: true });
+
+    // Fire-and-forget reverse geocode to store human-readable location
+    const pingId = pingResult.rows[0].id;
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=16`, {
+      headers: { 'User-Agent': 'Infusion100 Charity Walk App' },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.address) {
+          const a = data.address;
+          const name = a.leisure || a.tourism || a.amenity || a.road || a.hamlet || a.suburb || a.village || a.town || a.city || '';
+          const area = a.suburb || a.village || a.town || a.city || a.county || '';
+          const location = name && area && name !== area ? `${name}, ${area}` : name || area;
+          if (location) {
+            db.query('UPDATE location_pings SET location_name = $1 WHERE id = $2', [location, pingId]);
+          }
+        }
+      })
+      .catch(() => {});
   } catch (err) {
     console.error('Location ping error:', err);
     res.status(500).json({ error: 'Failed to save location' });
@@ -489,7 +508,7 @@ router.get('/locations/live', async (req, res) => {
       const result = await db.query(`
         SELECT DISTINCT ON (p.id)
           p.id, p.full_name, p.avatar_url,
-          lp.lat, lp.lng, lp.recorded_at,
+          lp.lat, lp.lng, lp.recorded_at, lp.location_name,
           ts.status as tracking_status
         FROM participants p
         INNER JOIN practice_walk_participants pwp ON pwp.participant_id = p.id AND pwp.practice_walk_id = $1
@@ -507,7 +526,7 @@ router.get('/locations/live', async (req, res) => {
     const result = await db.query(`
       SELECT DISTINCT ON (p.id)
         p.id, p.full_name, p.avatar_url,
-        lp.lat, lp.lng, lp.recorded_at,
+        lp.lat, lp.lng, lp.recorded_at, lp.location_name,
         ts.status as tracking_status
       FROM participants p
       INNER JOIN location_pings lp ON lp.participant_id = p.id AND lp.practice_walk_id IS NULL

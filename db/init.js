@@ -108,6 +108,7 @@ async function run() {
     `ALTER TABLE location_pings ADD COLUMN IF NOT EXISTS practice_walk_id INT REFERENCES practice_walks(id) ON DELETE SET NULL`,
     `CREATE INDEX IF NOT EXISTS idx_tracking_practice ON tracking_sessions(practice_walk_id)`,
     `CREATE INDEX IF NOT EXISTS idx_pings_practice ON location_pings(practice_walk_id)`,
+    `ALTER TABLE location_pings ADD COLUMN IF NOT EXISTS location_name VARCHAR(255)`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {

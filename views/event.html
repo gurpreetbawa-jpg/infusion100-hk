@@ -41,6 +41,9 @@
         Check In
       </button>
       <p class="text-muted mt-1 hidden" id="lastCheckIn" style="text-align:center;font-size:0.875rem"></p>
+      <div class="hidden mt-1" id="checkInCount" style="text-align:center;cursor:pointer" onclick="showCheckInsSheet()">
+        <span class="text-muted" style="font-size:0.875rem;text-decoration:underline" id="checkInCountText"></span>
+      </div>
     </div>
 
     <div class="card">
@@ -57,6 +60,13 @@
         <li>Share the <a href="/leaderboard">Live Map</a> link with friends and family!</li>
       </ul>
     </div>
+  </div>
+
+  <div class="bottom-sheet-backdrop" id="checkInsBackdrop" onclick="closeCheckInsSheet()"></div>
+  <div class="bottom-sheet" id="checkInsSheet">
+    <div class="bottom-sheet-handle"></div>
+    <div class="bottom-sheet-title">Checked In</div>
+    <div class="bottom-sheet-list" id="checkInsList"></div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -109,10 +119,23 @@
       refreshParticipants();
     }
 
+    var lastParticipants = [];
+
     async function refreshParticipants() {
       try {
         var participants = await App.fetchJSON('/api/locations/live');
+        lastParticipants = participants;
         var user = App.user;
+
+        // Update checked-in count
+        var countEl = document.getElementById('checkInCount');
+        var countText = document.getElementById('checkInCountText');
+        if (participants.length > 0) {
+          countText.textContent = participants.length + (participants.length === 1 ? ' person' : ' people') + ' checked in';
+          countEl.classList.remove('hidden');
+        } else {
+          countEl.classList.add('hidden');
+        }
 
         var visible = filterMode === 'following'
           ? participants.filter(function(p) { return (user && p.id === user.id) || followingIds.has(p.id); })
@@ -136,6 +159,7 @@
             '<div style="text-align:center">' +
               '<strong>' + App.escapeHtml(p.full_name || 'Unknown') + '</strong>' + (isMe ? ' (You)' : '') + '<br>' +
               '<small>Checked in ' + App.escapeHtml(App.formatRelative(p.recorded_at)) + '</small>' +
+              (p.location_name ? '<br><small>' + App.escapeHtml(p.location_name) + '</small>' : '') +
             '</div>';
 
           if (participantMarkers[p.id]) {
@@ -158,6 +182,46 @@
           }
         });
       } catch (e) {}
+    }
+
+    function showCheckInsSheet() {
+      var backdrop = document.getElementById('checkInsBackdrop');
+      var sheet = document.getElementById('checkInsSheet');
+      var list = document.getElementById('checkInsList');
+      // Static spinner markup — safe from XSS
+      list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
+      backdrop.classList.add('active');
+      requestAnimationFrame(function() { sheet.classList.add('active'); });
+      document.body.style.overflow = 'hidden';
+
+      // Use cached participants data; all values escaped with App.escapeHtml
+      var user = App.user;
+      var sorted = lastParticipants.slice().sort(function(a, b) {
+        return new Date(b.recorded_at) - new Date(a.recorded_at);
+      });
+
+      list.innerHTML = sorted.map(function(p) {
+        var isMe = user && p.id === user.id;
+        var sub = 'Checked in ' + App.escapeHtml(App.formatRelative(p.recorded_at));
+        if (p.location_name) sub += ' &middot; Near ' + App.escapeHtml(p.location_name);
+        return '<div class="bottom-sheet-item">' +
+          App.renderAvatar(p) +
+          '<div class="bottom-sheet-item-info">' +
+            '<div class="bottom-sheet-item-name">' + App.escapeHtml(p.full_name || 'Unknown') + (isMe ? ' (You)' : '') + '</div>' +
+            '<div class="bottom-sheet-item-sub">' + sub + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      if (sorted.length === 0) {
+        list.innerHTML = '<p class="text-muted" style="text-align:center;padding:1rem">No check-ins yet.</p>';
+      }
+    }
+
+    function closeCheckInsSheet() {
+      document.getElementById('checkInsSheet').classList.remove('active');
+      document.getElementById('checkInsBackdrop').classList.remove('active');
+      document.body.style.overflow = '';
     }
 
     async function checkIn() {
