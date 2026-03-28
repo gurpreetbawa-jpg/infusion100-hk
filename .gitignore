@@ -5,4 +5,3 @@ uploads/
 *.har
 .claude/
 .DS_Store
-package-lock.json
