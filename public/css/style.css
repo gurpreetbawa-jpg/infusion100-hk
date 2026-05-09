@@ -943,6 +943,28 @@ tr:hover td { background: var(--surface-alt); }
   flex-shrink: 0;
 }
 
+.bottom-sheet-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.bottom-sheet-tab {
+  flex: 1;
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  cursor: pointer;
+}
+.bottom-sheet-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
 .bottom-sheet-list {
   overflow-y: auto;
   padding: 0.25rem 1rem 1rem;

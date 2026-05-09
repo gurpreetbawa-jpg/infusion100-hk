@@ -287,6 +287,10 @@ router.post('/location', isAuthenticated, async (req, res) => {
       return res.status(403).json({ error: 'Event day tracking is not enabled' });
     }
 
+    if (!practice_walk_id) {
+      await db.query('DELETE FROM event_finishes WHERE participant_id = $1', [req.user.id]);
+    }
+
     const pingResult = await db.query(
       'INSERT INTO location_pings (participant_id, lat, lng, practice_walk_id) VALUES ($1, $2, $3, $4) RETURNING id',
       [req.user.id, lat, lng, practice_walk_id || null]
@@ -1324,6 +1328,59 @@ router.post('/webhooks/strava', async (req, res) => {
     }
   } catch (err) {
     console.error('[STRAVA WEBHOOK] Error:', err);
+  }
+});
+
+// --- Event Finishes ---
+router.post('/finish', isAuthenticated, async (req, res) => {
+  try {
+    const { lat, lng } = req.body;
+    const result = await db.query(
+      `INSERT INTO event_finishes (participant_id, lat, lng)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (participant_id) DO NOTHING
+       RETURNING id`,
+      [req.user.id, lat || null, lng || null]
+    );
+    res.json({ success: true });
+
+    if (lat && lng && result.rows.length > 0) {
+      const finishId = result.rows[0].id;
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=16`, {
+        headers: { 'User-Agent': 'Infusion100 Charity Walk App' },
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.address) {
+            const a = data.address;
+            const name = a.leisure || a.tourism || a.amenity || a.road || a.hamlet || a.suburb || a.village || a.town || a.city || '';
+            const area = a.suburb || a.village || a.town || a.city || a.county || '';
+            const location = name && area && name !== area ? `${name}, ${area}` : name || area;
+            if (location) {
+              db.query('UPDATE event_finishes SET location_name = $1 WHERE id = $2', [location, finishId]);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  } catch (err) {
+    console.error('Finish error:', err);
+    res.status(500).json({ error: 'Failed to record finish' });
+  }
+});
+
+router.get('/finishes', isAuthenticated, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT p.id, p.full_name, p.avatar_url, ef.finished_at, ef.location_name
+      FROM event_finishes ef
+      JOIN participants p ON p.id = ef.participant_id
+      ORDER BY ef.finished_at ASC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Finishes fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch finishes' });
   }
 });
 

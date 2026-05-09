@@ -37,12 +37,21 @@
       <p class="text-muted mt-1 mb-2">
         Tap the button to share your current location so friends and family can see you on the live map.
       </p>
-      <button class="btn btn-primary btn-lg btn-block" id="checkInBtn" onclick="checkIn()">
-        Check In
-      </button>
-      <p class="text-muted mt-1 hidden" id="lastCheckIn" style="text-align:center;font-size:0.875rem"></p>
-      <div class="hidden mt-1" id="checkInCount" style="text-align:center;cursor:pointer" onclick="showCheckInsSheet()">
-        <span class="text-muted" style="font-size:0.875rem;text-decoration:underline" id="checkInCountText"></span>
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn btn-primary btn-lg" style="flex:1" id="checkInBtn" onclick="checkIn()">Check In</button>
+        <button class="btn btn-success btn-lg" style="flex:1" id="finishBtn" onclick="finishWalk()">Mark as Finished</button>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.25rem">
+        <p class="text-muted hidden" id="lastCheckIn" style="flex:1;text-align:center;font-size:0.875rem"></p>
+        <p class="text-muted hidden" id="finishedStatus" style="flex:1;text-align:center;font-size:0.875rem">You've finished — well done!</p>
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.25rem">
+        <div class="hidden" id="checkInCount" style="flex:1;text-align:center;cursor:pointer" onclick="showCheckInsSheet('checkedIn')">
+          <span class="text-muted" style="font-size:0.875rem;text-decoration:underline" id="checkInCountText"></span>
+        </div>
+        <div class="hidden" id="finishCount" style="flex:1;text-align:center;cursor:pointer" onclick="showCheckInsSheet('finished')">
+          <span class="text-muted" style="font-size:0.875rem;text-decoration:underline" id="finishCountText"></span>
+        </div>
       </div>
     </div>
 
@@ -65,8 +74,12 @@
   <div class="bottom-sheet-backdrop" id="checkInsBackdrop" onclick="closeCheckInsSheet()"></div>
   <div class="bottom-sheet" id="checkInsSheet">
     <div class="bottom-sheet-handle"></div>
-    <div class="bottom-sheet-title">Checked In</div>
+    <div class="bottom-sheet-tabs">
+      <button class="bottom-sheet-tab active" id="tabCheckedIn" onclick="switchSheetTab('checkedIn')">Checked In</button>
+      <button class="bottom-sheet-tab" id="tabFinished" onclick="switchSheetTab('finished')">Finished</button>
+    </div>
     <div class="bottom-sheet-list" id="checkInsList"></div>
+    <div class="bottom-sheet-list hidden" id="finishedList"></div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -75,6 +88,9 @@
     let map;
     let followingIds = new Set();
     let filterMode = 'everyone';
+    let lastFinishers = [];
+    let hasFinished = false;
+    let activeSheetTab = 'checkedIn';
 
     async function init() {
       const user = await App.loadUser();
@@ -105,6 +121,7 @@
         map.fitBounds(coords, { padding: [30, 30] });
       }
 
+      await loadFinishers();
       refreshParticipants();
       setInterval(refreshParticipants, 30000);
     }
@@ -127,11 +144,13 @@
         lastParticipants = participants;
         var user = App.user;
 
-        // Update checked-in count
+        // Update checked-in count (excluding finishers)
         var countEl = document.getElementById('checkInCount');
         var countText = document.getElementById('checkInCountText');
-        if (participants.length > 0) {
-          countText.textContent = participants.length + (participants.length === 1 ? ' person' : ' people') + ' checked in';
+        var finishedIds = new Set(lastFinishers.map(function(f) { return f.id; }));
+        var activeCount = participants.filter(function(p) { return !finishedIds.has(p.id); }).length;
+        if (activeCount > 0) {
+          countText.textContent = activeCount + (activeCount === 1 ? ' person' : ' people') + ' checked in';
           countEl.classList.remove('hidden');
         } else {
           countEl.classList.add('hidden');
@@ -184,21 +203,39 @@
       } catch (e) {}
     }
 
-    function showCheckInsSheet() {
+    function showCheckInsSheet(tab) {
+      tab = tab || 'checkedIn';
       var backdrop = document.getElementById('checkInsBackdrop');
       var sheet = document.getElementById('checkInsSheet');
-      var list = document.getElementById('checkInsList');
-      // Static spinner markup — safe from XSS
-      list.innerHTML = '<div style="text-align:center;padding:1rem"><span class="spinner"></span></div>';
       backdrop.classList.add('active');
       requestAnimationFrame(function() { sheet.classList.add('active'); });
       document.body.style.overflow = 'hidden';
+      switchSheetTab(tab);
+    }
 
+    function switchSheetTab(tab) {
+      activeSheetTab = tab;
+      document.getElementById('tabCheckedIn').classList.toggle('active', tab === 'checkedIn');
+      document.getElementById('tabFinished').classList.toggle('active', tab === 'finished');
+      document.getElementById('checkInsList').classList.toggle('hidden', tab !== 'checkedIn');
+      document.getElementById('finishedList').classList.toggle('hidden', tab !== 'finished');
+      if (tab === 'checkedIn') renderCheckedInList();
+      else renderFinishedList();
+    }
+
+    function renderCheckedInList() {
+      var list = document.getElementById('checkInsList');
       // Use cached participants data; all values escaped with App.escapeHtml
       var user = App.user;
-      var sorted = lastParticipants.slice().sort(function(a, b) {
+      var finishedIds = new Set(lastFinishers.map(function(f) { return f.id; }));
+      var sorted = lastParticipants.filter(function(p) { return !finishedIds.has(p.id); }).sort(function(a, b) {
         return new Date(b.recorded_at) - new Date(a.recorded_at);
       });
+
+      if (sorted.length === 0) {
+        list.innerHTML = '<p class="text-muted" style="text-align:center;padding:1rem">No check-ins yet.</p>';
+        return;
+      }
 
       list.innerHTML = sorted.map(function(p) {
         var isMe = user && p.id === user.id;
@@ -212,9 +249,104 @@
           '</div>' +
         '</div>';
       }).join('');
+    }
 
-      if (sorted.length === 0) {
-        list.innerHTML = '<p class="text-muted" style="text-align:center;padding:1rem">No check-ins yet.</p>';
+    function renderFinishedList() {
+      var list = document.getElementById('finishedList');
+      var user = App.user;
+
+      if (lastFinishers.length === 0) {
+        list.innerHTML = '<p class="text-muted" style="text-align:center;padding:1rem">Nobody has finished yet.</p>';
+        return;
+      }
+
+      // All values escaped with App.escapeHtml
+      list.innerHTML = lastFinishers.map(function(f) {
+        var isMe = user && f.id === user.id;
+        var sub = App.escapeHtml(App.formatRelative(f.finished_at)) + ' &middot; ' + App.escapeHtml(App.formatDateTime(f.finished_at));
+        if (f.location_name) sub += '<br>Near ' + App.escapeHtml(f.location_name);
+        return '<div class="bottom-sheet-item" style="cursor:pointer" onclick="focusParticipant(' + f.id + ')">' +
+          App.renderAvatar(f) +
+          '<div class="bottom-sheet-item-info">' +
+            '<div class="bottom-sheet-item-name">' + App.escapeHtml(f.full_name || 'Unknown') + (isMe ? ' (You)' : '') + '</div>' +
+            '<div class="bottom-sheet-item-sub">' + sub + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    async function loadFinishers() {
+      try {
+        lastFinishers = await App.fetchJSON('/api/finishes');
+        var user = App.user;
+        hasFinished = user && lastFinishers.some(function(f) { return f.id === user.id; });
+        updateFinishButton();
+        updateFinishCount();
+      } catch {}
+    }
+
+    function updateFinishButton() {
+      var btn = document.getElementById('finishBtn');
+      var status = document.getElementById('finishedStatus');
+      if (hasFinished) {
+        btn.textContent = 'Finished!';
+        btn.disabled = true;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-secondary');
+        status.classList.remove('hidden');
+      } else {
+        btn.textContent = 'Mark as Finished';
+        btn.disabled = false;
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-secondary');
+        status.classList.add('hidden');
+      }
+    }
+
+    function updateFinishCount() {
+      var el = document.getElementById('finishCount');
+      var text = document.getElementById('finishCountText');
+      if (lastFinishers.length > 0) {
+        text.textContent = lastFinishers.length + (lastFinishers.length === 1 ? ' person' : ' people') + ' finished';
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+
+    async function finishWalk() {
+      if (!confirm('Mark yourself as finished?')) return;
+      var btn = document.getElementById('finishBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Getting location...';
+
+      try {
+        var pos = await new Promise(function(resolve, reject) {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0,
+          });
+        });
+
+        btn.innerHTML = '<span class="spinner"></span> Saving...';
+
+        await App.fetchJSON('/api/finish', {
+          method: 'POST',
+          body: JSON.stringify({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          }),
+        });
+        await loadFinishers();
+      } catch (err) {
+        var msg = 'Could not record finish. Please try again.';
+        if (err.code === 1) msg = 'Location permission denied. Please enable location access.';
+        else if (err.code === 2) msg = 'Unable to determine your location. Please try again.';
+        else if (err.code === 3) msg = 'Location request timed out. Please try again.';
+        App.showAlert(document.getElementById('alertBox'), msg, 'danger');
+        btn.disabled = false;
+        btn.textContent = 'Mark as Finished';
       }
     }
 
@@ -267,6 +399,7 @@
         lastEl.classList.remove('hidden');
 
         await refreshParticipants();
+        await loadFinishers();
 
         setTimeout(function() {
           btn.textContent = 'Check In';

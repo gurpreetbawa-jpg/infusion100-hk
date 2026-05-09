@@ -34,6 +34,17 @@ CREATE TABLE IF NOT EXISTS location_pings (
 CREATE INDEX IF NOT EXISTS idx_pings_participant ON location_pings(participant_id);
 CREATE INDEX IF NOT EXISTS idx_pings_recorded ON location_pings(recorded_at);
 
+CREATE TABLE IF NOT EXISTS event_finishes (
+  id             SERIAL PRIMARY KEY,
+  participant_id INT REFERENCES participants(id) ON DELETE CASCADE UNIQUE,
+  lat            DECIMAL(9,6),
+  lng            DECIMAL(9,6),
+  location_name  VARCHAR(255),
+  finished_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_finishes_participant ON event_finishes(participant_id);
+
 CREATE TABLE IF NOT EXISTS tracking_sessions (
   id            SERIAL PRIMARY KEY,
   participant_id INT REFERENCES participants(id) ON DELETE CASCADE,

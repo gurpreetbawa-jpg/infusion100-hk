@@ -109,6 +109,18 @@ async function run() {
     `CREATE INDEX IF NOT EXISTS idx_tracking_practice ON tracking_sessions(practice_walk_id)`,
     `CREATE INDEX IF NOT EXISTS idx_pings_practice ON location_pings(practice_walk_id)`,
     `ALTER TABLE location_pings ADD COLUMN IF NOT EXISTS location_name VARCHAR(255)`,
+    `CREATE TABLE IF NOT EXISTS event_finishes (
+      id SERIAL PRIMARY KEY,
+      participant_id INT REFERENCES participants(id) ON DELETE CASCADE UNIQUE,
+      lat DECIMAL(9,6),
+      lng DECIMAL(9,6),
+      location_name VARCHAR(255),
+      finished_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_finishes_participant ON event_finishes(participant_id)`,
+    `ALTER TABLE event_finishes ADD COLUMN IF NOT EXISTS lat DECIMAL(9,6)`,
+    `ALTER TABLE event_finishes ADD COLUMN IF NOT EXISTS lng DECIMAL(9,6)`,
+    `ALTER TABLE event_finishes ADD COLUMN IF NOT EXISTS location_name VARCHAR(255)`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {
