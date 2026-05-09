@@ -3,5 +3,5 @@
 // Once a feature is fully launched, remove the toggle and its checks.
 
 module.exports = {
-  EVENT_DAY_TRACKING: false,
+  EVENT_DAY_TRACKING: true,
 };
