@@ -35,6 +35,10 @@
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
+    fetch('/route.geojson').then(r => r.json()).then(data => {
+      L.geoJSON(data, { style: { color: '#FC4C02', weight: 3, opacity: 0.7 } }).addTo(map);
+    }).catch(() => {});
+
     const markers = {};
 
     async function init() {
