@@ -302,7 +302,10 @@ router.post('/location', isAuthenticated, async (req, res) => {
     fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=16`, {
       headers: { 'User-Agent': 'Infusion100 Charity Walk App' },
     })
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`Nominatim HTTP ${r.status}`);
+        return r.json();
+      })
       .then(data => {
         if (data && data.address) {
           const a = data.address;
@@ -312,9 +315,11 @@ router.post('/location', isAuthenticated, async (req, res) => {
           if (location) {
             db.query('UPDATE location_pings SET location_name = $1 WHERE id = $2', [location, pingId]);
           }
+        } else {
+          console.warn('Reverse geocode: no address in response', JSON.stringify(data));
         }
       })
-      .catch(() => {});
+      .catch(err => console.error('Reverse geocode error (ping):', err.message));
   } catch (err) {
     console.error('Location ping error:', err);
     res.status(500).json({ error: 'Failed to save location' });
@@ -1349,7 +1354,10 @@ router.post('/finish', isAuthenticated, async (req, res) => {
       fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=16`, {
         headers: { 'User-Agent': 'Infusion100 Charity Walk App' },
       })
-        .then(r => r.json())
+        .then(r => {
+          if (!r.ok) throw new Error(`Nominatim HTTP ${r.status}`);
+          return r.json();
+        })
         .then(data => {
           if (data && data.address) {
             const a = data.address;
@@ -1359,9 +1367,11 @@ router.post('/finish', isAuthenticated, async (req, res) => {
             if (location) {
               db.query('UPDATE event_finishes SET location_name = $1 WHERE id = $2', [location, finishId]);
             }
+          } else {
+            console.warn('Reverse geocode: no address in response', JSON.stringify(data));
           }
         })
-        .catch(() => {});
+        .catch(err => console.error('Reverse geocode error (finish):', err.message));
     }
   } catch (err) {
     console.error('Finish error:', err);

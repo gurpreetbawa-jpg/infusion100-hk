@@ -411,6 +411,9 @@
           btn.classList.add('btn-primary');
           btn.disabled = false;
         }, 3000);
+
+        // Refresh again after geocode has had time to complete
+        setTimeout(function() { refreshParticipants(); }, 4000);
       } catch (err) {
         var msg = 'Check-in failed: ' + err.message;
         if (err.code === 1) msg = 'Location permission denied. Please enable location access to check in.';
