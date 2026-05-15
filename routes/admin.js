@@ -344,4 +344,16 @@ router.delete('/api/practice-walks/:id', async (req, res) => {
   }
 });
 
+router.delete('/api/event-day', async (req, res) => {
+  try {
+    const pings = await db.query('DELETE FROM location_pings WHERE practice_walk_id IS NULL RETURNING id');
+    const finishes = await db.query('DELETE FROM event_finishes RETURNING id');
+    console.log(`[EVENT-DAY RESET] Deleted ${pings.rowCount} check-ins, ${finishes.rowCount} finishes`);
+    res.json({ checkins_deleted: pings.rowCount, finishes_deleted: finishes.rowCount });
+  } catch (err) {
+    console.error('Event day reset error:', err);
+    res.status(500).json({ error: 'Failed to reset event day data' });
+  }
+});
+
 module.exports = router;
