@@ -1,7 +1,41 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const multer = require('multer');
+const archiver = require('archiver');
+const unzipper = require('unzipper');
 const db = require('../db');
 const { isAdmin } = require('../middleware/auth');
 const router = express.Router();
+
+const BACKUP_TABLES = [
+  'participants', 'bridges', 'practice_walks', 'walks',
+  'walk_likes', 'walk_comments', 'participant_follows',
+  'location_pings', 'tracking_sessions', 'event_finishes',
+  'practice_walk_participants', 'deletion_requests', 'push_subscriptions',
+];
+
+const SEQUENCE_TABLES = [
+  'participants', 'location_pings', 'tracking_sessions', 'walks',
+  'walk_comments', 'event_finishes', 'bridges', 'push_subscriptions',
+  'deletion_requests', 'practice_walks',
+];
+
+const backupUpload = multer({
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (req, file, cb) => cb(null, `restore-${Date.now()}.zip`),
+  }),
+  limits: { fileSize: 500 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.originalname.endsWith('.zip') || file.mimetype === 'application/zip') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only zip files are allowed'));
+    }
+  },
+});
 
 router.use(isAdmin);
 
@@ -353,6 +387,123 @@ router.delete('/api/event-day', async (req, res) => {
   } catch (err) {
     console.error('Event day reset error:', err);
     res.status(500).json({ error: 'Failed to reset event day data' });
+  }
+});
+
+// --- Backup & Restore ---
+router.get('/api/backup', async (req, res) => {
+  try {
+    const date = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename=infusion100-backup-${date}.zip`);
+
+    const archive = archiver('zip', { zlib: { level: 6 } });
+    archive.on('error', err => { throw err; });
+    archive.pipe(res);
+
+    for (const table of BACKUP_TABLES) {
+      const result = await db.query(`SELECT * FROM ${table} ORDER BY 1`);
+      archive.append(JSON.stringify(result.rows, null, 2), { name: `data/${table}.json` });
+    }
+
+    const uploadsDir = path.join(__dirname, '..', 'uploads');
+    if (fs.existsSync(uploadsDir)) {
+      archive.directory(uploadsDir, 'files/uploads');
+    }
+
+    await archive.finalize();
+  } catch (err) {
+    console.error('Backup error:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Backup failed' });
+  }
+});
+
+router.post('/api/restore', backupUpload.single('backup'), async (req, res) => {
+  const zipPath = req.file?.path;
+  try {
+    if (!zipPath) return res.status(400).json({ error: 'No backup file provided' });
+
+    const tableData = {};
+    const fileEntries = [];
+
+    const directory = await unzipper.Open.file(zipPath);
+    for (const entry of directory.files) {
+      if (entry.type === 'Directory') continue;
+      if (entry.path.startsWith('data/') && entry.path.endsWith('.json')) {
+        const tableName = path.basename(entry.path, '.json');
+        const content = await entry.buffer();
+        tableData[tableName] = JSON.parse(content.toString());
+      } else if (entry.path.startsWith('files/uploads/')) {
+        fileEntries.push(entry);
+      }
+    }
+
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(`
+        TRUNCATE TABLE
+          walk_likes, walk_comments, participant_follows, event_finishes,
+          push_subscriptions, practice_walk_participants, location_pings,
+          tracking_sessions, deletion_requests, walks, practice_walks,
+          participants, bridges
+        RESTART IDENTITY CASCADE
+      `);
+
+      for (const table of BACKUP_TABLES) {
+        const rows = tableData[table] || [];
+        for (const row of rows) {
+          const keys = Object.keys(row);
+          if (keys.length === 0) continue;
+          const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+          await client.query(
+            `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`,
+            Object.values(row)
+          );
+        }
+      }
+
+      for (const table of SEQUENCE_TABLES) {
+        await client.query(`
+          SELECT setval(
+            pg_get_serial_sequence('${table}', 'id'),
+            COALESCE((SELECT MAX(id) FROM ${table}), 0) + 1,
+            false
+          )
+        `);
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const uploadsDir = path.join(__dirname, '..', 'uploads');
+    if (fs.existsSync(uploadsDir)) fs.rmSync(uploadsDir, { recursive: true });
+    fs.mkdirSync(uploadsDir, { recursive: true });
+
+    for (const entry of fileEntries) {
+      const relativePath = entry.path.replace('files/uploads/', '');
+      const destPath = path.join(uploadsDir, relativePath);
+      fs.mkdirSync(path.dirname(destPath), { recursive: true });
+      const content = await entry.buffer();
+      fs.writeFileSync(destPath, content);
+    }
+
+    const totalRows = Object.values(tableData).reduce((sum, rows) => sum + rows.length, 0);
+    console.log(`[RESTORE] ${totalRows} rows across ${Object.keys(tableData).length} tables, ${fileEntries.length} files`);
+    res.json({ success: true, tables: Object.keys(tableData).length, files: fileEntries.length });
+  } catch (err) {
+    console.error('Restore error:', err);
+    res.status(500).json({ error: err.message || 'Restore failed' });
+  } finally {
+    if (zipPath) {
+      try { fs.unlinkSync(zipPath); } catch {}
+    }
   }
 });
 
