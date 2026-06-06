@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const multer = require('multer');
-const archiver = require('archiver');
+const { ZipArchive } = require('archiver');
 const unzipper = require('unzipper');
 const db = require('../db');
 const { isAdmin } = require('../middleware/auth');
@@ -397,8 +397,12 @@ router.get('/api/backup', async (req, res) => {
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename=infusion100-backup-${date}.zip`);
 
-    const archive = archiver('zip', { zlib: { level: 6 } });
-    archive.on('error', err => { throw err; });
+    const archive = new ZipArchive({ zlib: { level: 6 } });
+    archive.on('error', err => {
+      console.error('Archiver error:', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Backup failed' });
+      else res.destroy();
+    });
     archive.pipe(res);
 
     for (const table of BACKUP_TABLES) {
