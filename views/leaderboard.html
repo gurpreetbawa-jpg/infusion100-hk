@@ -29,7 +29,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/app.js"></script>
   <script>
-    const map = L.map('liveMap').setView([51.49, -0.12], 12);
+    const map = L.map('liveMap').setView([22.26, 113.94], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
@@ -69,7 +69,7 @@
         bridgeMarkers.push(m);
       });
 
-      // Fit to London bridges route
+      // Fit to Lantau route
       if (bridges.length) {
         const coords = bridges.map(b => [b.lat, b.lng]);
         L.polyline(coords, { color: '#1A1F36', weight: 2, opacity: 0.3, dashArray: '6,6' }).addTo(map);

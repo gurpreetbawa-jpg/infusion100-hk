@@ -1,7 +1,7 @@
 {
   "name": "infusion100",
   "version": "1.0.0",
-  "description": "Infusion100 - London Bridges Charity Walk",
+  "description": "Infusion100 HK - Lantau Charity Walk 2026",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

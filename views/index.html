@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Infusion100 - London Bridges Charity Walk</title>
+  <title>Infusion100 HK - Lantau Charity Walk</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#1A1F36">
@@ -19,20 +19,20 @@
   </nav>
 
   <section class="hero">
-    <h1>Walk the <span class="accent">London Bridges</span></h1>
-    <p>Join the Infusion 100 charity walk across the bridges of London. Saturday, 16th May 2026.</p>
+    <h1>Walk <span class="accent">Lantau</span></h1>
+    <p>Join the Infusion 100 HK charity walk across Lantau Island. Saturday, 12th December 2026.</p>
     <a href="/register" class="btn btn-primary btn-lg" id="heroBtn">Sign Up &amp; Walk</a>
     <div class="hero-stats">
       <div>
-        <div class="hero-stat-value" id="bridgeCount">26</div>
-        <div class="hero-stat-label">London Bridges</div>
+        <div class="hero-stat-value" id="bridgeCount">7</div>
+        <div class="hero-stat-label">Lantau Checkpoints</div>
       </div>
       <div>
         <div class="hero-stat-value" id="participantCount">--</div>
         <div class="hero-stat-label">Walkers Signed Up</div>
       </div>
       <div>
-        <div class="hero-stat-value">16 May</div>
+        <div class="hero-stat-value">12 Dec</div>
         <div class="hero-stat-label">Event Day</div>
       </div>
       <div>
@@ -63,15 +63,15 @@
 
     <div class="card">
       <h2>About Infusion 100</h2>
-      <p class="mt-1">On the 16th May, we are undertaking the London Bridges Challenge (with an additional walk to the HSBC Headquarters) to raise money for the 2026 Infusion100 School Build in Guatemala.</p>
+      <p class="mt-1">On the 12th December 2026, we are undertaking the Lantau Challenge to raise money for the 2027 Infusion100 School Build in Nepal.</p>
       <p class="mt-1">This year, we are walking in memory of our beloved friend and colleague, Gary Webster. Gary was a key sponsor of the first school walk and encouraged our “Chief” Linoy Kidd to go beyond the initial build and keep going. </p>
       <p class="mt-1">Since Infusion100 began in 2014, 3,000+ walkers have participated in 15+ walks in Guangzhou, Foshan, Shanghai, Hong Kong, London, Toronto, Mexico, Dubai and New York. Thanks to everyone's collective efforts, 10 schools have been built and over 350,000 USD has been raised.</p>
-      <p class="mt-1">Sponsor our walk here: <a href="https://act.buildon.org/team/791763" target="infusion100">https://act.buildon.org/team/791763</a></p>
+      <p class="mt-1">Sponsor our walk here: <a href="https://act.buildon.org/team/843985" target="infusion100">https://act.buildon.org/team/843985</a></p>
     </div>
 
     <div class="card">
       <h2>The Route</h2>
-      <p class="mt-1 mb-2">From Hampton Court Bridge in the west to Tower Bridge, finishing at Canary Wharf — 26 bridges spanning London.</p>
+      <p class="mt-1 mb-2">From Discovery Bay in the east through Mui Wo, Pui O, Shek Pik, Ngong Ping, and Tai O, finishing at Tung Chung — 7 checkpoints across Lantau Island.</p>
       <div id="routeMap" class="map-container" style="height:350px"></div>
     </div>
   </div>
@@ -95,7 +95,7 @@
         scrollWheelZoom: false,
         doubleClickZoom: !isMobile,
         boxZoom: !isMobile,
-      }).setView([51.48, -0.12], 11);
+      }).setView([22.26, 113.94], 11);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
@@ -118,7 +118,7 @@
       const { walkers } = await App.fetchJSON('/api/participant-count');
       document.getElementById('participantCount').textContent = walkers;
 
-      const eventDate = new Date('2026-05-16T00:00:00');
+      const eventDate = new Date('2026-12-12T00:00:00');
       const daysToGo = Math.ceil((eventDate - new Date()) / (1000 * 60 * 60 * 24));
       document.getElementById('daysToGo').textContent = daysToGo > 0 ? daysToGo : 'Today!';
     })();
