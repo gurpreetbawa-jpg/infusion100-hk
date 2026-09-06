@@ -147,7 +147,14 @@ async function compressImage(inputPath) {
   return `uploads/images/${filename}`;
 }
 
-const STRAVA_ELIGIBLE_EMAIL = 'raj.shah.uk@gmail.com';
+const STRAVA_ELIGIBLE = require('../config/strava-eligible');
+
+function isStravaEligible(email) {
+  if (!email) return false;
+  const eligible = STRAVA_ELIGIBLE.trim();
+  if (eligible === '*') return true;
+  return eligible.split(',').map(e => e.trim().toLowerCase()).includes(email.toLowerCase());
+}
 
 function stripStravaFields(walk) {
   walk.strava_id = null;
@@ -169,7 +176,7 @@ router.get('/features', (req, res) => {
 router.get('/me', isAuthenticated, (req, res) => {
   const { strava_token, strava_refresh_token, ...user } = req.user;
   user.strava_connected = !!strava_token;
-  user.strava_eligible = req.user.email === STRAVA_ELIGIBLE_EMAIL;
+  user.strava_eligible = isStravaEligible(req.user.email);
   res.json(user);
 });
 
@@ -920,7 +927,7 @@ router.delete('/walks/:id', isAuthenticated, async (req, res) => {
 // --- Strava Sync ---
 router.get('/strava/sync', isAuthenticated, async (req, res) => {
   try {
-    if (req.user.email !== STRAVA_ELIGIBLE_EMAIL) {
+    if (!isStravaEligible(req.user.email)) {
       return res.status(403).json({ error: 'Strava integration is temporarily limited' });
     }
     if (!req.user.strava_token) {
@@ -1062,7 +1069,7 @@ router.get('/strava/sync', isAuthenticated, async (req, res) => {
 
 router.delete('/strava/unlink', isAuthenticated, async (req, res) => {
   try {
-    if (req.user.email !== STRAVA_ELIGIBLE_EMAIL) {
+    if (!isStravaEligible(req.user.email)) {
       return res.status(403).json({ error: 'Strava integration is temporarily limited' });
     }
     // Delete Strava walk images from disk
