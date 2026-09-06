@@ -33,10 +33,15 @@ router.get('/callback/github', passport.authenticate('github', {
   res.redirect('/');
 });
 
+const STRAVA_ELIGIBLE = require('../config/strava-eligible');
+
 // Strava OAuth (login + linking)
 router.get('/strava', (req, res) => {
-  const STRAVA_ELIGIBLE_EMAIL = 'raj.shah.uk@gmail.com';
-  if (!req.isAuthenticated() || req.user.email !== STRAVA_ELIGIBLE_EMAIL) {
+  if (!req.isAuthenticated()) {
+    return res.redirect('/login?error=strava_unavailable');
+  }
+  const eligible = STRAVA_ELIGIBLE.trim();
+  if (eligible !== '*' && !eligible.split(',').map(e => e.trim().toLowerCase()).includes(req.user.email.toLowerCase())) {
     return res.redirect('/login?error=strava_unavailable');
   }
   const clientId = process.env.STRAVA_CLIENT_ID;
