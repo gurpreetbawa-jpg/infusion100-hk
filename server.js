@@ -57,6 +57,15 @@ app.use(helmet({
   },
 }));
 app.use(cors({ origin: false }));
+// Defense in depth: no client sends compressed request bodies, so refuse them
+// before body parsing (avoids exposing the zlib/brotli decoders to untrusted input).
+app.use((req, res, next) => {
+  const enc = req.headers['content-encoding'];
+  if (enc && enc.trim().toLowerCase() !== 'identity') {
+    return res.status(415).json({ error: 'Compressed request bodies are not supported' });
+  }
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
