@@ -150,9 +150,9 @@
         if (walk.polyline) {
           window._polylineData = walk.polyline;
           const map = L.map('walkMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, touchZoom: false, doubleClickZoom: false });
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-            subdomains: 'abcd', maxZoom: 20
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, OpenStreetMap contributors',
+            maxZoom: 19
           }).addTo(map);
           const coords = decodePolyline(walk.polyline);
           const line = L.polyline(coords, { color: '#FC4C02', weight: 3 }).addTo(map);
@@ -358,9 +358,9 @@
 
       setTimeout(() => {
         _fullMap = L.map('fullMap');
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-          subdomains: 'abcd', maxZoom: 20
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, OpenStreetMap contributors',
+          maxZoom: 19
         }).addTo(_fullMap);
         const coords = decodePolyline(window._polylineData);
         const line = L.polyline(coords, { color: '#FC4C02', weight: 3 }).addTo(_fullMap);
