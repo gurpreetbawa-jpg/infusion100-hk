@@ -42,6 +42,10 @@ async function run() {
   await pool.query(schema);
   console.log('[DB INIT] Schema applied');
 
+  // Ensure bridges columns exist before seeding (schema.sql only applies to fresh tables)
+  await pool.query(`ALTER TABLE bridges ADD COLUMN IF NOT EXISTS description TEXT`);
+  await pool.query(`ALTER TABLE bridges ADD COLUMN IF NOT EXISTS wpt_type VARCHAR(50)`);
+
   console.log('[DB INIT] Seeding bridges...');
   await pool.query(seed);
   console.log('[DB INIT] Bridges seeded');
@@ -121,6 +125,8 @@ async function run() {
     `ALTER TABLE event_finishes ADD COLUMN IF NOT EXISTS lat DECIMAL(9,6)`,
     `ALTER TABLE event_finishes ADD COLUMN IF NOT EXISTS lng DECIMAL(9,6)`,
     `ALTER TABLE event_finishes ADD COLUMN IF NOT EXISTS location_name VARCHAR(255)`,
+    `ALTER TABLE bridges ADD COLUMN IF NOT EXISTS description TEXT`,
+    `ALTER TABLE bridges ADD COLUMN IF NOT EXISTS wpt_type VARCHAR(50)`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {

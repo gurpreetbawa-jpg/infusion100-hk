@@ -101,7 +101,9 @@ CREATE TABLE IF NOT EXISTS bridges (
   name          VARCHAR(100),
   lat           DECIMAL(9,6),
   lng           DECIMAL(9,6),
-  order_index   INT
+  order_index   INT,
+  description   TEXT,
+  wpt_type      VARCHAR(50)
 );
 
 CREATE TABLE IF NOT EXISTS push_subscriptions (

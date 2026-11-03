@@ -24,8 +24,8 @@
     <a href="/register" class="btn btn-primary btn-lg" id="heroBtn">Sign Up &amp; Walk</a>
     <div class="hero-stats">
       <div>
-        <div class="hero-stat-value" id="bridgeCount">7</div>
-        <div class="hero-stat-label">Lantau Checkpoints</div>
+        <div class="hero-stat-value" id="bridgeCount">14</div>
+        <div class="hero-stat-label">Route Waypoints</div>
       </div>
       <div>
         <div class="hero-stat-value" id="participantCount">--</div>
@@ -72,8 +72,16 @@
 
     <div class="card">
       <h2>The Route</h2>
-      <p class="mt-1 mb-2">From Discovery Bay in the east through Mui Wo, Pui O, Shek Pik, Ngong Ping, and Tai O, finishing at Tung Chung — 7 checkpoints across Lantau Island.</p>
+      <p class="mt-1 mb-2">From Discovery Bay in the east through Mui Wo, Pui O, Shek Pik, Ngong Ping, and Tai O, finishing at Tung Chung — 14 waypoints across Lantau Island.</p>
       <div id="routeMap" class="map-container" style="height:350px"></div>
+      <div class="route-table-wrapper mt-2">
+        <table class="route-table">
+          <thead>
+            <tr><th>#</th><th>Waypoint</th><th>Type</th><th>Notes</th></tr>
+          </thead>
+          <tbody id="routeTableBody"><tr><td colspan="4">Loading&hellip;</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -107,7 +115,7 @@
         const marker = L.circleMarker([b.lat, b.lng], {
           radius: 6, fillColor: '#FC4C02', color: '#fff', weight: 2, fillOpacity: 0.9
         }).addTo(map);
-        marker.bindPopup(`<strong>${b.name}</strong>`);
+        marker.bindPopup(`<strong>${App.escapeHtml(b.name)}</strong>`);
         coords.push([b.lat, b.lng]);
       });
 
@@ -116,8 +124,20 @@
         map.fitBounds(coords, { padding: [30, 30] });
       }
 
+      // Render route info table
+      const tbody = document.getElementById('routeTableBody');
+      tbody.innerHTML = bridges.map((b, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td><strong>${App.escapeHtml(b.name)}</strong></td>
+          <td>${App.escapeHtml(b.wpt_type || '—')}</td>
+          <td>${App.escapeHtml(b.description || '') || '—'}</td>
+        </tr>
+      `).join('');
+
       const { walkers } = await App.fetchJSON('/api/participant-count');
       document.getElementById('participantCount').textContent = walkers;
+      document.getElementById('bridgeCount').textContent = bridges.length;
 
       const eventDate = new Date('2026-12-12T00:00:00');
       const daysToGo = Math.ceil((eventDate - new Date()) / (1000 * 60 * 60 * 24));
