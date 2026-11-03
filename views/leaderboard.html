@@ -30,8 +30,9 @@
   <script src="/js/app.js"></script>
   <script>
     const map = L.map('liveMap').setView([22.26, 113.94], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd', maxZoom: 20
     }).addTo(map);
 
     fetch('/route.geojson').then(r => r.json()).then(data => {

@@ -49,7 +49,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
       scriptSrcAttr: ["'unsafe-inline'"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https://*.tile.openstreetmap.org", "https://*.googleapis.com", "https://*.googleusercontent.com", "https://dgalywyr863hv.cloudfront.net"],
+      imgSrc: ["'self'", "data:", "https://*.tile.openstreetmap.org", "https://*.basemaps.cartocdn.com", "https://*.googleapis.com", "https://*.googleusercontent.com", "https://dgalywyr863hv.cloudfront.net"],
       connectSrc: ["'self'"],
       workerSrc: ["'self'"],
       upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
