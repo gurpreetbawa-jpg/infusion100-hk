@@ -109,24 +109,31 @@
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
 
-      const bridges = await App.fetchJSON('/api/bridges');
-      const coords = [];
+      const [bridges, track] = await Promise.all([
+        App.fetchJSON('/api/bridges'),
+        App.fetchJSON('/route-track.json').catch(() => []),
+      ]);
+
       bridges.forEach(b => {
         const marker = L.circleMarker([b.lat, b.lng], {
           radius: 6, fillColor: '#FC4C02', color: '#fff', weight: 2, fillOpacity: 0.9
         }).addTo(map);
         marker.bindPopup(`<strong>${App.escapeHtml(b.name)}</strong>`);
-        coords.push([b.lat, b.lng]);
       });
 
-      if (coords.length) {
+      if (track.length) {
+        const line = L.polyline(track, { color: '#1A1F36', weight: 3, opacity: 0.7 }).addTo(map);
+        map.fitBounds(line.getBounds(), { padding: [30, 30] });
+      } else if (bridges.length) {
+        const coords = bridges.map(b => [b.lat, b.lng]);
         L.polyline(coords, { color: '#1A1F36', weight: 3, opacity: 0.5, dashArray: '8,8' }).addTo(map);
         map.fitBounds(coords, { padding: [30, 30] });
       }
 
-      // Render route info table
+      // Render route info table — toilets are omitted (markers only on map)
       const tbody = document.getElementById('routeTableBody');
-      tbody.innerHTML = bridges.map((b, i) => `
+      const tableRows = bridges.filter(b => (b.wpt_type || '').toUpperCase() !== 'TOILET');
+      tbody.innerHTML = tableRows.map((b, i) => `
         <tr>
           <td>${i + 1}</td>
           <td><strong>${App.escapeHtml(b.name)}</strong></td>
