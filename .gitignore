@@ -4,4 +4,5 @@ uploads/
 *.log
 *.har
 .claude/
+.omo/
 .DS_Store
