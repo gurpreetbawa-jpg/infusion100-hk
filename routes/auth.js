@@ -3,6 +3,32 @@ const crypto = require('crypto');
 const passport = require('passport');
 const router = express.Router();
 
+// Dev-only admin login — disabled entirely in production (Render sets NODE_ENV=production)
+if (process.env.NODE_ENV !== 'production') {
+  router.get('/dev-login', async (req, res) => {
+    const db = require('../db');
+    const email = 'dev-admin@localhost';
+    const existing = await db.query('SELECT * FROM participants WHERE email = $1', [email]);
+    let user;
+    if (existing.rows.length > 0) {
+      user = (await db.query(
+        `UPDATE participants SET role = 'admin', profile_complete = TRUE WHERE email = $1 RETURNING *`,
+        [email]
+      )).rows[0];
+    } else {
+      user = (await db.query(
+        `INSERT INTO participants (email, full_name, role, profile_complete)
+         VALUES ($1, $2, 'admin', TRUE) RETURNING *`,
+        [email, 'Dev Admin']
+      )).rows[0];
+    }
+    req.login(user, (err) => {
+      if (err) return res.status(500).json({ error: 'Dev login failed' });
+      res.redirect('/admin/participants');
+    });
+  });
+}
+
 // Google OAuth
 router.get('/google', passport.authenticate('google', {
   scope: ['openid', 'email', 'profile'],

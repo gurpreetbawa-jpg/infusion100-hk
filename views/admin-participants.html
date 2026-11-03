@@ -41,6 +41,8 @@
               <th>Email</th>
               <th>Phone</th>
               <th>Walking</th>
+              <th>Planned</th>
+              <th>Fundraising</th>
               <th>Strava</th>
               <th>Registered</th>
               <th></th>
@@ -89,6 +91,14 @@
           <label for="editWalkingOnDay" style="font-weight:400; font-size:0.875rem">Walking on event day</label>
         </div>
         <div class="form-group">
+          <label>Planned Distance (km)</label>
+          <input type="number" id="editPlannedDistance" class="form-control" min="0" step="0.1" placeholder="e.g. 50">
+        </div>
+        <div class="form-check">
+          <input type="checkbox" id="editHasFundraisingPage">
+          <label for="editHasFundraisingPage" style="font-weight:400; font-size:0.875rem">Has a fundraising page</label>
+        </div>
+        <div class="form-group">
           <label>Role</label>
           <select id="editRole" class="form-control">
             <option value="participant">Participant</option>
@@ -119,7 +129,7 @@
       const body = document.getElementById('participantsBody');
 
       if (data.participants.length === 0) {
-        body.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:2rem">No participants found.</td></tr>';
+        body.innerHTML = '<tr><td colspan="9" class="text-center text-muted" style="padding:2rem">No participants found.</td></tr>';
         document.getElementById('pagination').innerHTML = '';
         return;
       }
@@ -134,6 +144,8 @@
           <td>${App.escapeHtml(p.email)}</td>
           <td>${App.escapeHtml(p.phone || '--')}</td>
           <td>${p.walking_on_day ? '<span class="badge badge-success">Yes</span>' : 'No'}</td>
+          <td>${p.planned_distance_km != null ? App.escapeHtml(p.planned_distance_km) + ' km' : '--'}</td>
+          <td>${p.has_fundraising_page ? '<span class="badge badge-success">Yes</span>' : 'No'}</td>
           <td>${p.strava_connected ? '<span class="badge badge-strava">Yes</span>' : 'No'}</td>
           <td>${App.formatDate(p.registered_at)}</td>
           <td><button class="btn btn-outline btn-sm participant-edit-btn" data-idx="${i}">Edit</button></td>
@@ -154,6 +166,8 @@
           <div style="display:flex; flex-wrap:wrap; gap:0.5rem 1.5rem; margin-top:0.75rem; font-size:0.8125rem; color:var(--text-muted)">
             ${p.phone ? `<span>Phone: ${App.escapeHtml(p.phone)}</span>` : ''}
             ${p.walking_on_day ? '<span class="badge badge-success">Walking</span>' : ''}
+            ${p.planned_distance_km != null ? `<span>Planned: ${App.escapeHtml(p.planned_distance_km)} km</span>` : ''}
+            ${p.has_fundraising_page ? '<span class="badge badge-success">Fundraising</span>' : ''}
             ${p.strava_connected ? '<span class="badge badge-strava">Strava</span>' : ''}
             <span>${App.formatDate(p.registered_at)}</span>
           </div>
@@ -200,6 +214,8 @@
       document.getElementById('editEcName').value = p.emergency_contact_name || '';
       document.getElementById('editEcPhone').value = p.emergency_contact_phone || '';
       document.getElementById('editWalkingOnDay').checked = !!p.walking_on_day;
+      document.getElementById('editPlannedDistance').value = p.planned_distance_km ?? '';
+      document.getElementById('editHasFundraisingPage').checked = !!p.has_fundraising_page;
       document.getElementById('editRole').value = p.role || 'participant';
       document.getElementById('editModal').classList.add('active');
     }
@@ -220,6 +236,8 @@
             emergency_contact_name: document.getElementById('editEcName').value,
             emergency_contact_phone: document.getElementById('editEcPhone').value,
             walking_on_day: document.getElementById('editWalkingOnDay').checked,
+            planned_distance_km: document.getElementById('editPlannedDistance').value,
+            has_fundraising_page: document.getElementById('editHasFundraisingPage').checked,
             role: document.getElementById('editRole').value,
           }),
         });

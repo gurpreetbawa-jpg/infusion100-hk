@@ -127,6 +127,8 @@ async function run() {
     `ALTER TABLE event_finishes ADD COLUMN IF NOT EXISTS location_name VARCHAR(255)`,
     `ALTER TABLE bridges ADD COLUMN IF NOT EXISTS description TEXT`,
     `ALTER TABLE bridges ADD COLUMN IF NOT EXISTS wpt_type VARCHAR(50)`,
+    `ALTER TABLE participants ADD COLUMN IF NOT EXISTS planned_distance_km DECIMAL(8,2)`,
+    `ALTER TABLE participants ADD COLUMN IF NOT EXISTS has_fundraising_page BOOLEAN DEFAULT FALSE`,
   ];
   console.log(`[DB INIT] Running ${migrations.length} migrations...`);
   for (let i = 0; i < migrations.length; i++) {

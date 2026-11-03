@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS participants (
   strava_sync_types VARCHAR(255) DEFAULT 'Walk,Hike,Run',
   role          VARCHAR(20) DEFAULT 'participant',
   walking_on_day BOOLEAN DEFAULT FALSE,
+  planned_distance_km DECIMAL(8,2),
+  has_fundraising_page BOOLEAN DEFAULT FALSE,
   profile_complete BOOLEAN DEFAULT FALSE,
   gdpr_consent  BOOLEAN DEFAULT FALSE,
   last_engagement_notified_at TIMESTAMPTZ DEFAULT NOW(),

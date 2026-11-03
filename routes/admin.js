@@ -87,13 +87,13 @@ router.get('/api/participants/export', async (req, res) => {
   try {
     const result = await db.query(
       `SELECT full_name, email, phone, emergency_contact_name, emergency_contact_phone,
-       walking_on_day, registered_at,
+       walking_on_day, planned_distance_km, has_fundraising_page, registered_at,
        CASE WHEN strava_token IS NOT NULL THEN 'Yes' ELSE 'No' END as strava_connected
        FROM participants ORDER BY registered_at DESC`
     );
 
     const headers = ['Full Name', 'Email', 'Phone', 'Emergency Contact', 'Emergency Phone',
-                     'Walking on Day', 'Registered', 'Strava'];
+                     'Walking on Day', 'Planned Distance (km)', 'Fundraising Page', 'Registered', 'Strava'];
     const csvRows = [headers.join(',')];
 
     for (const row of result.rows) {
@@ -104,6 +104,8 @@ router.get('/api/participants/export', async (req, res) => {
         `"${(row.emergency_contact_name || '').replace(/"/g, '""')}"`,
         `"${row.emergency_contact_phone || ''}"`,
         row.walking_on_day ? 'Yes' : 'No',
+        row.planned_distance_km ?? '',
+        row.has_fundraising_page ? 'Yes' : 'No',
         `"${row.registered_at}"`,
         row.strava_connected,
       ].join(','));
@@ -120,13 +122,19 @@ router.get('/api/participants/export', async (req, res) => {
 router.put('/api/participants/:id', async (req, res) => {
   try {
     const { full_name, phone, emergency_contact_name, emergency_contact_phone,
-            walking_on_day, role } = req.body;
+            walking_on_day, role, planned_distance_km, has_fundraising_page } = req.body;
+
+    const plannedDistance = planned_distance_km === '' || planned_distance_km == null
+      ? null
+      : planned_distance_km;
 
     const result = await db.query(
       `UPDATE participants SET full_name = $1, phone = $2, emergency_contact_name = $3,
-       emergency_contact_phone = $4, walking_on_day = $5, role = $6 WHERE id = $7 RETURNING *`,
+       emergency_contact_phone = $4, walking_on_day = $5, role = $6,
+       planned_distance_km = $7, has_fundraising_page = $8 WHERE id = $9 RETURNING *`,
       [full_name, phone, emergency_contact_name, emergency_contact_phone,
-       walking_on_day ?? false, role, req.params.id]
+       walking_on_day ?? false, role, plannedDistance, has_fundraising_page ?? false,
+       req.params.id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Participant not found' });
