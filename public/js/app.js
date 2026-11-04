@@ -264,6 +264,48 @@ App.buildNav = function () {
     .join('');
 };
 
+// Easter egg: hot pink theme (hidden heart at the bottom of every page)
+(function () {
+  var KEY = 'themeHotPink';
+  var root = document.documentElement;
+  var stored = null;
+  try { stored = localStorage.getItem(KEY); } catch (e) { /* storage unavailable */ }
+  if (stored === '1') root.setAttribute('data-theme', 'hotpink');
+
+  function setTheme(on) {
+    if (on) root.setAttribute('data-theme', 'hotpink');
+    else root.removeAttribute('data-theme');
+    try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', on ? '#FF1493' : '#1A1F36');
+  }
+
+  function mount() {
+    var footer = document.createElement('div');
+    footer.className = 'egg-footer';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'egg-trigger';
+    btn.setAttribute('aria-label', 'Toggle hot pink theme');
+    btn.textContent = '\u2665';
+    btn.addEventListener('click', function () {
+      var on = root.getAttribute('data-theme') !== 'hotpink';
+      setTheme(on);
+      var toast = document.createElement('div');
+      toast.className = 'egg-toast';
+      toast.textContent = on ? '\uD83D\uDC96 Hot pink mode: ON' : 'Hot pink mode: off';
+      document.body.appendChild(toast);
+      setTimeout(function () { toast.remove(); }, 2300);
+    });
+    footer.appendChild(btn);
+    document.body.appendChild(footer);
+    if (stored === '1') setTheme(true);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
+  else mount();
+})();
+
 // Service worker registration
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');

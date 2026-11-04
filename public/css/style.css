@@ -1372,3 +1372,51 @@ tr:hover td { background: var(--surface-alt); }
   max-width: 1200px;
   max-height: calc(100vh - 2rem);
 }
+
+/* --- Easter egg: hot pink theme --- */
+html[data-theme="hotpink"] {
+  --accent: #FF1493;
+  --accent-hover: #D90E7C;
+}
+html[data-theme="hotpink"] .form-control:focus { box-shadow: 0 0 0 3px rgba(255, 20, 147, 0.15); }
+html[data-theme="hotpink"] .btn-follow:hover { background: rgba(255, 20, 147, 0.08); }
+html[data-theme="hotpink"] .navbar { box-shadow: 0 2px 12px rgba(255, 20, 147, 0.45); }
+
+.egg-footer {
+  text-align: center;
+  padding: 2rem 1rem 1.5rem;
+}
+.egg-trigger {
+  background: none;
+  border: none;
+  cursor: default;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.5rem;
+  color: var(--text-muted);
+  opacity: 0.08;
+  transition: opacity 0.3s;
+}
+.egg-trigger:hover, .egg-trigger:focus-visible { opacity: 0.5; }
+html[data-theme="hotpink"] .egg-trigger { color: #FF1493; opacity: 0.6; }
+
+.egg-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  background: #FF1493;
+  color: white;
+  font-weight: 700;
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(255, 20, 147, 0.5);
+  z-index: 3000;
+  animation: egg-pop 2.2s ease forwards;
+  pointer-events: none;
+}
+@keyframes egg-pop {
+  0% { opacity: 0; transform: translate(-50%, 10px); }
+  12%, 80% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 10px); }
+}
