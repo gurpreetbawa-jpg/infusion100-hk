@@ -270,7 +270,9 @@ App.buildNav = function () {
   var root = document.documentElement;
   var stored = null;
   try { stored = localStorage.getItem(KEY); } catch (e) { /* storage unavailable */ }
-  if (stored === '1') root.setAttribute('data-theme', 'hotpink');
+  // Hot pink is the default — on unless the user has explicitly turned it off.
+  var enabled = stored !== '0';
+  if (enabled) root.setAttribute('data-theme', 'hotpink');
 
   function setTheme(on) {
     if (on) root.setAttribute('data-theme', 'hotpink');
@@ -299,7 +301,7 @@ App.buildNav = function () {
     });
     footer.appendChild(btn);
     document.body.appendChild(footer);
-    if (stored === '1') setTheme(true);
+    if (enabled) setTheme(true);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
