@@ -45,6 +45,8 @@ async function run() {
   // Ensure bridges columns exist before seeding (schema.sql only applies to fresh tables)
   await pool.query(`ALTER TABLE bridges ADD COLUMN IF NOT EXISTS description TEXT`);
   await pool.query(`ALTER TABLE bridges ADD COLUMN IF NOT EXISTS wpt_type VARCHAR(50)`);
+  await pool.query(`ALTER TABLE bridges ADD COLUMN IF NOT EXISTS cumulative_km DECIMAL(8,2)`);
+  await pool.query(`ALTER TABLE bridges ADD COLUMN IF NOT EXISTS est_minutes INT`);
 
   console.log('[DB INIT] Seeding bridges...');
   await pool.query(seed);
@@ -127,6 +129,8 @@ async function run() {
     `ALTER TABLE event_finishes ADD COLUMN IF NOT EXISTS location_name VARCHAR(255)`,
     `ALTER TABLE bridges ADD COLUMN IF NOT EXISTS description TEXT`,
     `ALTER TABLE bridges ADD COLUMN IF NOT EXISTS wpt_type VARCHAR(50)`,
+    `ALTER TABLE bridges ADD COLUMN IF NOT EXISTS cumulative_km DECIMAL(8,2)`,
+    `ALTER TABLE bridges ADD COLUMN IF NOT EXISTS est_minutes INT`,
     `ALTER TABLE participants ADD COLUMN IF NOT EXISTS planned_distance_km DECIMAL(8,2)`,
     `ALTER TABLE participants ADD COLUMN IF NOT EXISTS has_fundraising_page BOOLEAN DEFAULT FALSE`,
   ];

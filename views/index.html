@@ -72,14 +72,19 @@
 
     <div class="card">
       <h2>The Route</h2>
-      <p class="mt-1 mb-2">From Discovery Bay in the east through Mui Wo, Pui O, Shek Pik, Ngong Ping, and Tai O, finishing at Tung Chung — 14 waypoints across Lantau Island.</p>
+      <p class="mt-1 mb-2">From Discovery Bay in the east through Mui Wo, Pui O, Shek Pik, Ngong Ping, and Tai O, finishing at Tung Chung — roughly 51km across Lantau Island.</p>
       <div id="routeMap" class="map-container" style="height:350px"></div>
-      <div class="route-table-wrapper mt-2">
+      <div class="flex gap-1 mt-2" style="flex-wrap:wrap">
+        <a href="https://connect.garmin.com/app/course/528434493" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">View on Garmin</a>
+        <a href="https://www.strava.com/routes/3554410577903959520" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">View on Strava</a>
+      </div>
+      <p class="text-muted mt-2" style="font-size:0.8125rem">Estimated times are a guide for a relaxed pace (approx. 4.5 km/h plus climbing) — allow more for breaks, photos and the Big Buddha climb.</p>
+      <div class="route-table-wrapper mt-1">
         <table class="route-table">
           <thead>
-            <tr><th>#</th><th>Waypoint</th><th>Type</th><th>Notes</th></tr>
+            <tr><th>#</th><th>Waypoint</th><th>Dist</th><th>Est. Time</th><th>To Finish</th><th>Notes</th></tr>
           </thead>
-          <tbody id="routeTableBody"><tr><td colspan="4">Loading&hellip;</td></tr></tbody>
+          <tbody id="routeTableBody"><tr><td colspan="6">Loading&hellip;</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -115,11 +120,26 @@
         App.fetchJSON('/route-track.json').catch(() => []),
       ]);
 
+      const fmtTime = (mins) => {
+        if (mins == null) return '--';
+        const m = Math.round(mins);
+        const h = Math.floor(m / 60);
+        const r = m % 60;
+        return h > 0 ? `${h}h ${String(r).padStart(2, '0')}m` : `${r}m`;
+      };
+
+      const totalMinutes = bridges.length
+        ? Math.max(...bridges.map(b => b.est_minutes == null ? 0 : Number(b.est_minutes)))
+        : 0;
+
       bridges.forEach(b => {
         const marker = L.circleMarker([b.lat, b.lng], {
           radius: 6, fillColor: '#FC4C02', color: '#fff', weight: 2, fillOpacity: 0.9
         }).addTo(map);
-        marker.bindPopup(`<strong>${App.escapeHtml(b.name)}</strong>`);
+        const bits = [`<strong>${App.escapeHtml(b.name)}</strong>`];
+        if (b.cumulative_km != null) bits.push(`${Number(b.cumulative_km).toFixed(1)} km`);
+        if (b.est_minutes != null) bits.push(`Est. ${fmtTime(b.est_minutes)} in`);
+        marker.bindPopup(bits.join('<br>'));
       });
 
       if (track.length) {
@@ -134,14 +154,19 @@
       // Render route info table — toilets are omitted (markers only on map)
       const tbody = document.getElementById('routeTableBody');
       const tableRows = bridges.filter(b => (b.wpt_type || '').toUpperCase() !== 'TOILET');
-      tbody.innerHTML = tableRows.map((b, i) => `
+      tbody.innerHTML = tableRows.map((b, i) => {
+        const toFinish = b.est_minutes == null ? null : totalMinutes - Number(b.est_minutes);
+        const dist = b.cumulative_km != null ? Number(b.cumulative_km).toFixed(1) + ' km' : '--';
+        return `
         <tr>
           <td>${i + 1}</td>
           <td><strong>${App.escapeHtml(b.name)}</strong></td>
-          <td>${App.escapeHtml(b.wpt_type || '—')}</td>
+          <td>${dist}</td>
+          <td>${fmtTime(b.est_minutes)}</td>
+          <td>${fmtTime(toFinish)}</td>
           <td>${App.escapeHtml(b.description || '') || '—'}</td>
-        </tr>
-      `).join('');
+        </tr>`;
+      }).join('');
 
       const { walkers } = await App.fetchJSON('/api/participant-count');
       document.getElementById('participantCount').textContent = walkers;

@@ -105,7 +105,9 @@ CREATE TABLE IF NOT EXISTS bridges (
   lng           DECIMAL(9,6),
   order_index   INT,
   description   TEXT,
-  wpt_type      VARCHAR(50)
+  wpt_type      VARCHAR(50),
+  cumulative_km DECIMAL(8,2),
+  est_minutes   INT
 );
 
 CREATE TABLE IF NOT EXISTS push_subscriptions (
