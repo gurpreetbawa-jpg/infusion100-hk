@@ -108,6 +108,16 @@
           <label for="edit_walking_on_day" style="font-weight:400; font-size:0.875rem">Walking on event day (12th December 2026)</label>
         </div>
         <div class="form-group">
+          <label for="edit_planned_distance_km">Planned Distance</label>
+          <select id="edit_planned_distance_km" class="form-control">
+            <option value="">Not sure yet</option>
+            <option value="25">25 km</option>
+            <option value="50">50 km</option>
+            <option value="75">75 km</option>
+            <option value="100">100 km (Full route)</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>Emergency Contact <span id="edit_ec_name_hint">(optional)</span></label>
           <input type="text" id="edit_ec_name" class="form-control">
         </div>
@@ -220,6 +230,7 @@
               emergency_contact_name: document.getElementById('edit_ec_name').value,
               emergency_contact_phone: document.getElementById('edit_ec_phone').value,
               walking_on_day: document.getElementById('edit_walking_on_day').checked,
+              planned_distance_km: document.getElementById('edit_planned_distance_km').value || null,
               gdpr_consent: user.gdpr_consent,
             }),
           });
@@ -233,12 +244,14 @@
     }
 
     function renderProfile() {
+      const distLabel = user.planned_distance_km ? `${user.planned_distance_km} km` : '--';
       const rows = [
         ['Name', user.full_name],
         ['Email', user.email],
         ['Phone', user.phone],
         ['Emergency Contact', `${user.emergency_contact_name} (${user.emergency_contact_phone})`],
         ['Walking on Day', user.walking_on_day ? 'Yes' : 'No'],
+        ['Planned Distance', distLabel],
       ];
       document.getElementById('profileTable').innerHTML = rows
         .map(([k, v]) => `<tr><td style="font-weight:600;width:160px;color:var(--text-muted)">${App.escapeHtml(k)}</td><td>${App.escapeHtml(v || '--')}</td></tr>`)
@@ -267,6 +280,7 @@
         document.getElementById('edit_ec_name').value = user.emergency_contact_name || '';
         document.getElementById('edit_ec_phone').value = user.emergency_contact_phone || '';
         document.getElementById('edit_walking_on_day').checked = !!user.walking_on_day;
+        document.getElementById('edit_planned_distance_km').value = user.planned_distance_km ? String(parseInt(user.planned_distance_km)) : '';
         updateEmergencyRequired();
       }
     }
