@@ -47,6 +47,17 @@
         </div>
 
         <div class="form-group">
+          <label for="planned_distance_km">Planned Distance</label>
+          <select id="planned_distance_km" name="planned_distance_km" class="form-control">
+            <option value="">Not sure yet</option>
+            <option value="25">25 km</option>
+            <option value="50">50 km</option>
+            <option value="75">75 km</option>
+            <option value="100">100 km (Full route)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label for="emergency_contact_name">Emergency Contact Name <span id="ec_name_hint">(optional)</span></label>
           <input type="text" id="emergency_contact_name" name="emergency_contact_name" class="form-control">
         </div>
@@ -107,6 +118,7 @@
               emergency_contact_name: document.getElementById('emergency_contact_name').value,
               emergency_contact_phone: document.getElementById('emergency_contact_phone').value,
               walking_on_day: document.getElementById('walking_on_day').checked,
+              planned_distance_km: document.getElementById('planned_distance_km').value || null,
               gdpr_consent: document.getElementById('gdpr_consent').checked,
             }),
           });
